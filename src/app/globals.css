@@ -1,0 +1,366 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  :root {
+    /* Digimytch — charte officielle */
+    --color-primary-blue: #030a8c;
+    --color-accent-magenta: #d10069;
+    --color-indigo: #4b0082;
+    --color-bg-gradient: linear-gradient(135deg, #020659 0%, #1a0840 50%, #9c004f 100%);
+    --digi-navy: #030a8c;
+    --digi-accent: #d10069;
+    --digi-orange: #f5a623;
+    --digi-surface: #f4f6fc;
+    --digi-dark: #0a0f2e;
+    --digi-muted: #5c5c7a;
+    --digi-border: #dde1ef;
+    --glass-background: rgba(255, 255, 255, 0.72);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.35);
+    --glass-blur: blur(12px);
+    --neon-glow: 0 0 15px rgba(209, 0, 105, 0.35);
+    --digi-green: #10b981;
+    --digi-red: #ef4444;
+    --digi-card: #ffffff;
+    --digi-card-shadow: 0 2px 12px rgba(15, 52, 96, 0.08);
+    --score-high: #10b981;
+    --score-mid: #f5a623;
+    --score-low: #ef4444;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body), system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), system-ui, sans-serif;
+  }
+
+  body.digimytch-theme {
+    background: var(--digi-surface);
+    background-image: none;
+  }
+
+  html.dark body.digimytch-theme {
+    --digi-surface: #0c1028;
+    --digi-dark: #e8eaf6;
+    --digi-dark-fg: #f0f2ff;
+    --digi-muted: #a8adc4;
+    --digi-border: #2a3158;
+    --digi-card: #141a38;
+    --digi-navy: #c5caf7;
+    --digi-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    --glass-background: rgba(20, 26, 56, 0.85);
+    background: var(--digi-surface);
+    color: var(--digi-dark-fg);
+  }
+
+  html.dark .digimytch-theme aside,
+  html.dark .digimytch-theme .digimytch-mobile-nav {
+    background: rgba(20, 26, 56, 0.95) !important;
+  }
+
+  .digimytch-landing {
+    background: var(--color-bg-gradient);
+  }
+
+  /* Hero uniquement : texte clair sur fond dégradé */
+  .digimytch-landing-hero {
+    color: #ffffff;
+  }
+
+  .digimytch-landing-hero .text-muted-landing {
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  /* Sections claires : texte sombre (ne pas forcer le blanc globalement) */
+  .digimytch-landing-light {
+    color: var(--digi-dark);
+  }
+
+  .glass-card {
+    background: var(--glass-background);
+    backdrop-filter: var(--glass-blur);
+    border: var(--glass-border);
+    border-radius: 16px;
+  }
+
+  .btn-digi-primary {
+    background: linear-gradient(90deg, var(--color-primary-blue), var(--color-accent-magenta));
+    color: #ffffff;
+    border-radius: 9999px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn-digi-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--neon-glow);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in-up-delay-1 {
+  animation: fadeInUp 0.6s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-up-delay-2 {
+  animation: fadeInUp 0.6s ease-out 0.4s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-up-delay-3 {
+  animation: fadeInUp 0.6s ease-out 0.6s forwards;
+  opacity: 0;
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-white/40 backdrop-blur-md border border-white/20 shadow-lg relative overflow-hidden;
+  }
+  
+  .hover-card {
+    @apply transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 hover:bg-white/50;
+  }
+
+  @keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(-10px, -10px) rotate(1deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+
+  @keyframes float-delayed {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(10px, -5px) rotate(-1deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+
+  .animate-float {
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .animate-float-delayed {
+    animation: float-delayed 9s ease-in-out infinite;
+  }
+
+  .bg-radial-glow-purple {
+    background: radial-gradient(
+      circle at center,
+      theme('colors.purple.500/0.15') 0%,
+      theme('colors.purple.500/0.05') 45%,
+      transparent 70%
+    );
+  }
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e2e8f0;
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #cbd5e1;
+}
+
+
+
+.buyButton {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  color: #ffffff;
+  background-color: #ff813f;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  padding: 0.5rem;
+  font-size: 1rem;
+  letter-spacing: 0.6px;
+  box-shadow: 0px 1px 2px rgba(190, 190, 190, 0.5);
+  font-family: cursive;
+}
+.buyButton:hover,
+.buyButton:active,
+.buyButton:focus {
+  text-decoration: underline;
+  box-shadow: 0px 1px 2px 2px rgba(190, 190, 190, 0.5);
+  opacity: 0.85;
+  color: #ffffff;
+}
+
+.coffeeImage {
+  height: 2vh;
+  box-shadow: none;
+  border: none;
+  vertical-align: middle;
+}
+
+.coffeeButtonText {
+  margin-left: 15px;
+  font-size: 0.8rem;
+  vertical-align: middle;
+}
+
+/* Buy Me Coffee Button Styles */
+#bmc-wbtn {
+  position: fixed !important;
+  bottom: 1.5rem !important;
+  right: 1.5rem !important;
+  z-index: 50 !important;
+  transition: transform 0.2s ease-in-out !important;
+}
+
+#bmc-wbtn:hover {
+  transform: translateY(-2px) !important;
+}
+
+@media (max-width: 640px) {
+  #bmc-wbtn {
+    bottom: 1rem !important;
+    right: 1rem !important;
+    transform: scale(0.9) !important;
+  }
+}
+/* 
+h1 {
+  display: block;
+  font-size: 2em;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+
+h2 {
+  display: block;
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+h3 {
+  display: block;
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+h4 {
+  display: block;
+  font-size: 1em;
+  margin-top: 1.33em;
+  margin-bottom: 1.33em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+h5 {
+  display: block;
+  font-size: .83em;
+  margin-top: 1.67em;
+  margin-bottom: 1.67em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+h6 {
+  display: block;
+  font-size: .67em;
+  margin-top: 2.33em;
+  margin-bottom: 2.33em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+} */
