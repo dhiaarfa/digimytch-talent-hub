@@ -24,7 +24,6 @@ function consumeInMemory(key: string): number {
 export async function checkRateLimit(userId: string, scope = "global"): Promise<void> {
   const key = `${userId}:${scope}`;
 
-  // Fallback local dev/test sans Upstash: sliding window en mémoire.
   const retryAfter = consumeInMemory(key);
   if (retryAfter > 0) {
     throw new RateLimitError(retryAfter);
