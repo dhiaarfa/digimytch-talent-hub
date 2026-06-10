@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
+import { getPublicSiteUrl } from "@/lib/site-url";
 
 /** Métadonnées publiques — Digimytch Talent Hub uniquement */
 export const digimytchMetadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001"
-  ),
+  metadataBase: new URL(getPublicSiteUrl()),
   title: {
     default: "Digimytch Talent Hub — CV, matching & formations",
     template: "%s | Digimytch Talent Hub",

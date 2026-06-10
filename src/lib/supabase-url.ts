@@ -29,6 +29,10 @@ export function getSupabaseAnonKeySafe(): string | null {
   return key;
 }
 
+export function isSupabaseConfigured(): boolean {
+  return Boolean(getSupabaseUrlSafe() && getSupabaseAnonKeySafe());
+}
+
 /**
  * Normalise l'URL Supabase pour éviter ECONNREFUSED avec `localhost` (IPv6) côté Node/Edge.
  */
