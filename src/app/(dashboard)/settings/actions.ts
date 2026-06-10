@@ -70,14 +70,28 @@ export async function updatePassword(formData: FormData): Promise<SecurityResult
     return { success: false, error: 'Current password is incorrect' };
   }
 
-  // Then update to the new password
   const { error } = await supabase.auth.updateUser({ password: newPassword });
 
   if (error) {
     return { success: false, error: error.message };
   }
 
+  // Rafraîchir la session avec le nouveau mot de passe (évite « identifiants invalides » au prochain login)
+  const { error: sessionError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: newPassword,
+  });
+
+  if (sessionError) {
+    return {
+      success: false,
+      error:
+        "Mot de passe mis à jour mais la session n'a pas pu être renouvelée. Reconnectez-vous avec le nouveau mot de passe.",
+    };
+  }
+
   revalidatePath('/settings');
+  revalidatePath('/', 'layout');
   return { success: true };
 } 
 

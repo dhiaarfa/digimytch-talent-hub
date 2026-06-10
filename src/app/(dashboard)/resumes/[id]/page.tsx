@@ -4,31 +4,49 @@ import { getResumeById } from "@/utils/actions/resumes/actions";
 import { ResumeEditorLazy } from "@/components/resume/editor/resume-editor-lazy";
 import { Metadata } from "next";
 import { Resume } from "@/lib/types";
+import {
+  hasCoverLetterContent,
+  normalizeCoverLetterContent,
+} from "@/lib/cover-letter-html";
 
 const getResumePageData = cache(async (resumeId: string) => {
   return getResumeById(resumeId);
 });
 
-// Helper function to normalize resume data
 function normalizeResumeData(resume: Resume): Resume {
+  const rawContent =
+    typeof resume.cover_letter?.content === "string"
+      ? resume.cover_letter.content
+      : "";
+  const withLetter =
+    hasCoverLetterContent(resume) || rawContent.trim().length > 0;
+
   return {
     ...resume,
-    // Normalize work experience dates
+    has_cover_letter: withLetter,
+    ...(withLetter && rawContent
+      ? {
+          cover_letter: {
+            ...resume.cover_letter,
+            content: normalizeCoverLetterContent(rawContent),
+            lastUpdated:
+              (resume.cover_letter as { lastUpdated?: string })?.lastUpdated ??
+              resume.updated_at,
+          },
+        }
+      : {}),
     work_experience: resume.work_experience?.map(exp => ({
       ...exp,
       date: exp.date || ''
     })) || [],
-    // Normalize education dates
     education: resume.education?.map(edu => ({
       ...edu,
       date: edu.date || ''
     })) || [],
-    // Normalize project dates
     projects: resume.projects?.map(project => ({
       ...project,
       date: project.date || ''
     })) || [],
-    // Initialize document settings with defaults if not present
     document_settings: resume.document_settings || {
       document_font_size: 10,
       document_line_height: 1.5,
@@ -68,29 +86,41 @@ export async function generateMetadata({
       title: `${resume.name} | Digimytch Talent Hub`,
       description: `Édition du CV « ${resume.name} » — ${resume.target_role || "poste"}`,
     };
-  } catch (error) {
-    void error;
+  } catch {
     return {
-      title: 'Éditeur de CV | Digimytch Talent Hub',
-      description: 'Éditeur de CV assisté par intelligence artificielle',
+      title: 'Éditeur | Digimytch Talent Hub',
+      description: 'Éditeur assisté par intelligence artificielle',
     };
   }
 }
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string; mode?: string }>;
 }) {
-
-  
   try {
     const { id } = await params;
+    const sp = await searchParams;
+    const letterMode =
+      sp.mode === "letter" || sp.tab === "letter";
+    const defaultTab =
+      sp.tab === "letter" ? "cover-letter" : "basic";
+
     const { resume: rawResume, profile, job } = await getResumePageData(id);
     const normalizedResume = normalizeResumeData(rawResume);
-    const component = (
-      <div 
-        className="h-full flex flex-col "
+
+    if (letterMode) {
+      if (normalizedResume.is_base_resume || !normalizedResume.job_id) {
+        redirect(`/resumes/${id}`);
+      }
+    }
+
+    return (
+      <div
+        className="h-full flex flex-col"
         data-page-title={normalizedResume.name}
         data-resume-type={normalizedResume.is_base_resume ? "Base Resume" : "Tailored Resume"}
       >
@@ -98,17 +128,15 @@ export default async function Page({
           initialResume={normalizedResume}
           profile={profile}
           initialJob={job}
+          defaultTab={letterMode ? "cover-letter" : defaultTab}
+          editorMode={letterMode ? "letter" : "cv"}
         />
       </div>
     );
-  
-    
-    return component;
   } catch (error) {
-    void error;
     if (error instanceof Error && error.message === 'User not authenticated') {
-      redirect("/");
+      redirect("/auth/login");
     }
-    redirect("/");
+    redirect("/resumes");
   }
-} 
+}

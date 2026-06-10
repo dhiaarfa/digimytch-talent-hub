@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDashboardData } from "@/utils/actions";
 import { ProfileEditForm } from "@/components/profile/profile-edit-form";
+import { LinkedInAnalyzerLazy } from "@/components/digimytch/digimytch-panels-lazy";
 import { Suspense } from "react";
 
 // Force dynamic behavior and disable caching
@@ -39,6 +40,18 @@ export default async function EditProfilePage() {
         <Suspense fallback={<div>Loading...</div>}>
           <ProfileEditForm profile={profile} />
         </Suspense>
+        {/* LinkedIn Profile Analyzer */}
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-16">
+          <div className="mb-4 mt-8">
+            <h2 className="font-display text-lg font-bold text-[var(--digi-navy)] dark:text-[var(--digi-dark-fg)]">
+              Analyse de profil LinkedIn
+            </h2>
+            <p className="text-sm text-[var(--digi-muted)] mt-0.5">
+              Uploadez une capture d&apos;écran de votre profil LinkedIn pour obtenir une analyse IA avec recommandations personnalisées.
+            </p>
+          </div>
+          <LinkedInAnalyzerLazy />
+        </div>
       </div>
     </main>
   );

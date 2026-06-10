@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Profile, ResumeSummary } from "@/lib/types";
+import { Profile, ResumeSummary, Job } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, Plus, Brain, Copy } from "lucide-react";
 import { createTailoredResume, getResumeById } from "@/utils/actions/resumes/actions";
@@ -20,15 +20,56 @@ import { JobDescriptionInput } from "../job-description-input";
 import { ApiErrorDialog } from "@/components/ui/api-error-dialog";
 import { cn, withBasePath } from "@/lib/utils";
 import { resumeLabels, tResume } from "@/lib/resume-labels";
+import { jobToDescriptionText, jobToSimplifiedListing } from "@/lib/job-listing";
+import { selectBestModelForTask, type ApiKey } from "@/lib/ai-models";
+import { isDigimytchTalentHub } from "@/lib/digimytch-config";
 
 interface CreateTailoredResumeDialogProps {
   children: React.ReactNode;
   baseResumes?: ResumeSummary[];
   profile?: Profile;
+  existingJob?: Job | null;
+  controlledOpen?: boolean;
+  onControlledOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  /** Après création, ouvre l’éditeur en mode lettre uniquement */
+  openToLetterMode?: boolean;
 }
 
-export function CreateTailoredResumeDialog({ children, baseResumes, profile }: CreateTailoredResumeDialogProps) {
-  const [open, setOpen] = useState(false);
+function resolveTailorAiConfig() {
+  const MODEL_STORAGE_KEY = 'resumelm-default-model';
+  const LOCAL_STORAGE_KEY = 'resumelm-api-keys';
+  const selectedModel =
+    (typeof window !== 'undefined' ? localStorage.getItem(MODEL_STORAGE_KEY) : null) ||
+    (isDigimytchTalentHub() ? selectBestModelForTask('cv') : '');
+  const storedKeys =
+    typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEY) : null;
+  let apiKeys: ApiKey[] = [];
+  try {
+    apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
+  } catch {
+    apiKeys = [];
+  }
+  return { model: selectedModel, apiKeys };
+}
+
+export function CreateTailoredResumeDialog({
+  children,
+  baseResumes,
+  profile,
+  existingJob,
+  controlledOpen,
+  onControlledOpenChange,
+  hideTrigger = false,
+  openToLetterMode = false,
+}: CreateTailoredResumeDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (isControlled) onControlledOpenChange?.(next);
+    else setInternalOpen(next);
+  };
   const [selectedBaseResume, setSelectedBaseResume] = useState<string>(baseResumes?.[0]?.id || '');
   const [jobDescription, setJobDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -41,6 +82,12 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
   const [errorMessage, setErrorMessage] = useState({ title: '', description: '' });
   const router = useRouter();
   const L = resumeLabels();
+
+  useEffect(() => {
+    if (existingJob && open) {
+      setJobDescription(jobToDescriptionText(existingJob));
+    }
+  }, [existingJob, open]);
 
   function redactSecrets(text: string) {
     return text
@@ -95,7 +142,7 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
       return;
     }
 
-    if (!jobDescription.trim() && importOption === 'ai') {
+    if (!jobDescription.trim() && importOption === 'ai' && !existingJob?.id) {
       setIsJobDescriptionInvalid(true);
       toast({
         title: "Error",
@@ -112,6 +159,59 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
       // Reset validation states
       setIsBaseResumeInvalid(false);
       setIsJobDescriptionInvalid(false);
+
+      // Get model and API key from local storage (Digimytch: OpenRouter gratuit par défaut)
+      const { model: selectedModel, apiKeys } = resolveTailorAiConfig();
+
+      // Offre déjà en base (depuis le menu Offres)
+      if (existingJob?.id && importOption === 'ai') {
+        const formattedJobListing = jobToSimplifiedListing(existingJob);
+        setCurrentStep('formatting');
+
+        const { resume: baseResume } = await getResumeById(selectedBaseResume);
+        if (!baseResume) throw new Error("Base resume not found");
+
+        setCurrentStep('tailoring');
+        let tailoredContent;
+        try {
+          tailoredContent = await tailorResumeToJob(baseResume, formattedJobListing, {
+            model: selectedModel,
+            apiKeys,
+          });
+        } catch (error: Error | unknown) {
+          setErrorMessage({
+            title: "Erreur",
+            description: buildErrorDescription("Échec de l'adaptation IA du CV. Réessayez.", error),
+          });
+          setShowErrorDialog(true);
+          setIsCreating(false);
+          return;
+        }
+
+        setCurrentStep('finalizing');
+        const resume = await createTailoredResume(
+          baseResume,
+          existingJob.id,
+          formattedJobListing.position_title || existingJob.position_title || '',
+          formattedJobListing.company_name || existingJob.company_name || '',
+          tailoredContent,
+        );
+
+        toast({
+          title: openToLetterMode ? "Prêt pour votre lettre" : "CV sur mesure créé",
+          description: openToLetterMode
+            ? "Rédigez votre lettre de motivation pour cette offre."
+            : "Votre CV est prêt à être édité.",
+        });
+
+        window.location.assign(
+          withBasePath(
+            `/resumes/${resume.id}${openToLetterMode ? "?mode=letter" : ""}`
+          )
+        );
+        setOpen(false);
+        return;
+      }
 
       if (importOption === 'import-profile') {
         // Direct copy logic
@@ -198,24 +298,13 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
           description: "Resume created successfully",
         });
 
-        router.push(`/resumes/${resume.id}`);
+        router.push(
+          `/resumes/${resume.id}${openToLetterMode ? "?mode=letter" : ""}`
+        );
         setOpen(false);
         return;
       }
 
-      // Get model and API key from local storage
-      const MODEL_STORAGE_KEY = 'resumelm-default-model';
-      const LOCAL_STORAGE_KEY = 'resumelm-api-keys';
-
-      const selectedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-      const storedKeys = localStorage.getItem(LOCAL_STORAGE_KEY);
-      let apiKeys = [];
-
-      try {
-        apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
-      } catch (error) {
-        console.error('Error parsing API keys:', error);
-      }
       // 1. Format the job listing
       let formattedJobListing;
       try {
@@ -310,7 +399,9 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
         description: "Resume created successfully",
       });
 
-      router.push(`/resumes/${resume.id}`);
+      router.push(
+        `/resumes/${resume.id}${openToLetterMode ? "?mode=letter" : ""}`
+      );
       setOpen(false);
     } catch (error: unknown) {
       console.error('Failed to create resume:', error);
@@ -324,11 +415,23 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
     }
   };
 
-  // Reset form when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && isCreating) {
+      toast({
+        title: openToLetterMode ? "Création de la lettre en cours" : "Création en cours",
+        description: openToLetterMode
+          ? "Veuillez patienter jusqu'à la fin de la préparation de votre lettre."
+          : "Veuillez patienter jusqu'à la fin de la création du CV.",
+      });
+      return;
+    }
     setOpen(newOpen);
     if (newOpen) {
-      setJobDescription('');
+      if (existingJob) {
+        setJobDescription(jobToDescriptionText(existingJob));
+      } else {
+        setJobDescription('');
+      }
       setDialogStep(1);
       setImportOption('ai');
       setSelectedBaseResume(baseResumes?.[0]?.id || '');
@@ -371,9 +474,11 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
+        {!hideTrigger && (
+          <DialogTrigger asChild>
+            {children}
+          </DialogTrigger>
+        )}
         <DialogContent className="sm:max-w-[800px] p-0 max-h-[90vh] overflow-y-auto bg-white border border-gray-200 shadow-lg rounded-lg">
           <style jsx global>{`
             @keyframes shake {
@@ -424,7 +529,12 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
 
           {/* Content */}
           <div className="px-6 py-2 min-h-[400px] relative">
-            {isCreating && <LoadingOverlay currentStep={currentStep} />}
+            {isCreating && (
+              <LoadingOverlay
+                currentStep={currentStep}
+                variant={openToLetterMode ? "letter" : "resume"}
+              />
+            )}
             
             {dialogStep === 1 && (
               <div className="space-y-6">
@@ -604,8 +714,12 @@ export function CreateTailoredResumeDialog({ children, baseResumes, profile }: C
                     {isCreating ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {tResume("Creating...", "Création…")}
+                        {openToLetterMode
+                          ? tResume("Creating letter...", "Création de la lettre…")
+                          : tResume("Creating...", "Création…")}
                       </>
+                    ) : openToLetterMode ? (
+                      tResume("Create cover letter", "Créer la lettre")
                     ) : (
                       tResume("Create Resume", "Créer le CV")
                     )}

@@ -13,6 +13,7 @@ export async function listCourses(): Promise<Course[]> {
   const { data, error } = await supabase
     .from("courses")
     .select("*")
+    .is("deleted_at", null)
     .order("title", { ascending: true });
 
   if (error) {

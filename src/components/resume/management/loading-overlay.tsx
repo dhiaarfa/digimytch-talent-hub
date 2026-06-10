@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2 } from "lucide-react";
 import { LoadingDots } from "@/components/ui/loading-dots";
+import { isDigimytchTalentHub } from "@/lib/digimytch-config";
 
-// Define the creation steps
 export const CREATION_STEPS = [
   { id: 'analyzing', label: 'Analyzing Job Description' },
   { id: 'formatting', label: 'Formatting Requirements' },
@@ -15,32 +15,106 @@ export const CREATION_STEPS = [
 
 export type CreationStep = typeof CREATION_STEPS[number]['id'];
 
+export type LoadingOverlayVariant = 'resume' | 'letter';
+
+const STEP_LABELS: Record<
+  LoadingOverlayVariant,
+  Record<CreationStep, { en: string; fr: string }>
+> = {
+  resume: {
+    analyzing: { en: 'Analyzing Job Description', fr: "Analyse de l'offre d'emploi" },
+    formatting: { en: 'Formatting Requirements', fr: 'Structuration des exigences' },
+    tailoring: { en: 'Tailoring Resume Content', fr: 'Adaptation du contenu du CV' },
+    finalizing: { en: 'Finalizing Resume', fr: 'Finalisation du CV' },
+  },
+  letter: {
+    analyzing: { en: 'Analyzing Job Description', fr: "Analyse de l'offre d'emploi" },
+    formatting: { en: 'Formatting Requirements', fr: "Structuration de l'offre" },
+    tailoring: { en: 'Preparing Letter Context', fr: 'Préparation du contexte pour la lettre' },
+    finalizing: { en: 'Finalizing Cover Letter', fr: 'Finalisation de la lettre' },
+  },
+};
+
+const STEP_HINTS: Record<
+  LoadingOverlayVariant,
+  Record<CreationStep, { en: string; fr: string }>
+> = {
+  resume: {
+    analyzing: {
+      en: 'Reading and understanding the job requirements...',
+      fr: "Lecture et compréhension des exigences de l'offre…",
+    },
+    formatting: {
+      en: 'Structuring the job information...',
+      fr: "Structuration des informations de l'offre…",
+    },
+    tailoring: {
+      en: 'Optimizing your resume for the best match...',
+      fr: 'Optimisation de votre CV pour cette offre…',
+    },
+    finalizing: {
+      en: 'Putting the final touches...',
+      fr: 'Dernières retouches sur votre CV…',
+    },
+  },
+  letter: {
+    analyzing: {
+      en: 'Reading and understanding the job requirements...',
+      fr: "Lecture et compréhension de l'offre collée…",
+    },
+    formatting: {
+      en: 'Structuring the job information...',
+      fr: "Extraction des informations clés de l'offre…",
+    },
+    tailoring: {
+      en: 'Linking your resume to this job for the letter...',
+      fr: 'Association de votre CV à cette offre pour la lettre…',
+    },
+    finalizing: {
+      en: 'Opening the cover letter editor...',
+      fr: "Ouverture de l'éditeur de lettre de motivation…",
+    },
+  },
+};
+
+const OVERLAY_TITLE: Record<LoadingOverlayVariant, { en: string; fr: string }> = {
+  resume: { en: 'Creating Resume', fr: 'Création du CV' },
+  letter: { en: 'Creating Cover Letter', fr: 'Création de la lettre' },
+};
+
 interface LoadingOverlayProps {
   currentStep: CreationStep;
+  variant?: LoadingOverlayVariant;
 }
 
-export function LoadingOverlay({ currentStep }: LoadingOverlayProps) {
-  const currentStepIndex = CREATION_STEPS.findIndex(step => step.id === currentStep);
-  const progress = ((currentStepIndex + 1) / CREATION_STEPS.length) * 100;
+export function LoadingOverlay({ currentStep, variant = 'resume' }: LoadingOverlayProps) {
+  const digi = isDigimytchTalentHub();
+  const lang = digi ? 'fr' : 'en';
+  const steps = CREATION_STEPS.map((step) => ({
+    id: step.id,
+    label: STEP_LABELS[variant][step.id][lang],
+  }));
+  const currentStepIndex = steps.findIndex((step) => step.id === currentStep);
+  const progress = ((currentStepIndex + 1) / steps.length) * 100;
+  const title = OVERLAY_TITLE[variant][lang];
+  const hint = STEP_HINTS[variant][currentStep][lang];
 
   return (
     <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="max-w-md w-full space-y-8 p-8">
-        {/* Progress bar */}
         <div className="space-y-3">
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Creating Resume</span>
+            <span className="font-medium text-gray-900">{title}</span>
             <span>{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
 
-        {/* Steps */}
         <div className="space-y-4">
-          {CREATION_STEPS.map((step, index) => {
+          {steps.map((step, index) => {
             const isActive = step.id === currentStep;
             const isCompleted = index < currentStepIndex;
-            
+
             return (
               <div
                 key={step.id}
@@ -59,11 +133,13 @@ export function LoadingOverlay({ currentStep }: LoadingOverlayProps) {
                 ) : (
                   <div className="h-5 w-5 rounded-full border-2 border-muted" />
                 )}
-                <span className={cn(
-                  "text-sm font-medium",
-                  isActive && "text-pink-900",
-                  !isActive && !isCompleted && "text-muted-foreground"
-                )}>
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    isActive && "text-pink-900",
+                    !isActive && !isCompleted && "text-muted-foreground"
+                  )}
+                >
                   {step.label}
                 </span>
               </div>
@@ -71,16 +147,10 @@ export function LoadingOverlay({ currentStep }: LoadingOverlayProps) {
           })}
         </div>
 
-        {/* Current action description */}
         <div className="text-center">
-          <p className="text-sm text-muted-foreground animate-pulse">
-            {currentStep === 'analyzing' && "Reading and understanding the job requirements..."}
-            {currentStep === 'formatting' && "Structuring the job information..."}
-            {currentStep === 'tailoring' && "Optimizing your resume for the best match..."}
-            {currentStep === 'finalizing' && "Putting the final touches..."}
-          </p>
+          <p className="text-sm text-muted-foreground animate-pulse">{hint}</p>
         </div>
       </div>
     </div>
   );
-} 
+}

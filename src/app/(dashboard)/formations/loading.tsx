@@ -1,1 +1,1 @@
-export { default } from "../loading";
+export { DigimytchRouteLoading as default } from "@/components/ui/digimytch-route-loading";

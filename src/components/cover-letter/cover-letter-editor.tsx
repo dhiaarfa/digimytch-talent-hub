@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import { 
@@ -19,23 +19,41 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  type CoverLetterDocumentSettings,
+  DEFAULT_COVER_LETTER_SETTINGS,
+} from '@/lib/cover-letter-settings'
 
 interface CoverLetterEditorProps {
   initialData: Record<string, unknown>;
   onChange?: (data: Record<string, unknown>) => void;
   containerWidth: number;
   isPrintVersion?: boolean;
+  settings?: CoverLetterDocumentSettings;
+  readOnly?: boolean;
 }
 
 function CoverLetterEditor({ 
   initialData, 
   onChange, 
   containerWidth,
-  isPrintVersion = false 
+  isPrintVersion = false,
+  settings = DEFAULT_COVER_LETTER_SETTINGS,
+  readOnly = false,
 }: CoverLetterEditorProps) {
+
+  const pageStyle = useMemo(
+    () => ({
+      fontSize: `${settings.document_font_size}pt`,
+      lineHeight: settings.document_line_height,
+      padding: `${settings.document_margin_vertical}px ${settings.document_margin_horizontal}px`,
+    }),
+    [settings]
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     extensions: [
       StarterKit,
       Underline,
@@ -44,10 +62,11 @@ function CoverLetterEditor({
         alignments: ['left', 'center', 'right'],
       }),
     ],
-    content: initialData?.content as string || '<p>Start writing your cover letter...</p>',
+    content: initialData?.content as string || '<p></p>',
     editorProps: {
       attributes: {
-        class: 'prose prose-xxs focus:outline-none h-full overflow-none max-w-none text-black ',
+        class: 'cover-letter-prose focus:outline-none h-full max-w-none text-[var(--digi-dark)]',
+        style: `font-size: ${settings.document_font_size}pt; line-height: ${settings.document_line_height};`,
       },
     },
     onUpdate: ({ editor }) => {
@@ -58,7 +77,6 @@ function CoverLetterEditor({
     }
   })
 
-  // Update effect to handle content changes
   useEffect(() => {
     if (editor && initialData?.content) {
       const currentContent = editor.getHTML()
@@ -69,22 +87,22 @@ function CoverLetterEditor({
     }
   }, [initialData?.content, editor])
 
-  // Cleanup editor on unmount
   useEffect(() => {
     return () => {
       editor?.destroy()
     }
   }, [editor])
 
+  const scale = Math.min(1, Math.max(0.55, containerWidth / 816));
+
   return (
-    <div className="relative w-full max-w-[816px] mx-auto shadow-lg overflow-hidden mb-12 bg-white">
-      {editor && (
+    <div className="relative w-full max-w-[816px] mx-auto shadow-xl overflow-hidden mb-8 bg-white border border-[var(--digi-border)] rounded-sm">
+      {editor && !readOnly && (
         <BubbleMenu 
           editor={editor} 
           tippyOptions={{ duration: 100 }}
           className="flex overflow-hidden rounded-lg border border-gray-300 bg-white shadow-xl"
         >
-          {/* Text Style */}
           <div className="flex items-center">
             <Button
               onClick={() => editor.chain().focus().toggleBold().run()}
@@ -97,7 +115,6 @@ function CoverLetterEditor({
             >
               <BoldIcon className="h-4 w-4" />
             </Button>
-            
             <Button
               onClick={() => editor.chain().focus().toggleItalic().run()}
               className={cn(
@@ -109,7 +126,6 @@ function CoverLetterEditor({
             >
               <ItalicIcon className="h-4 w-4" />
             </Button>
-            
             <Button
               onClick={() => editor.chain().focus().toggleUnderline().run()}
               className={cn(
@@ -121,7 +137,6 @@ function CoverLetterEditor({
             >
               <UnderlineIcon className="h-4 w-4" />
             </Button>
-            
             <Button
               onClick={() => editor.chain().focus().toggleStrike().run()}
               className={cn(
@@ -134,10 +149,7 @@ function CoverLetterEditor({
               <StrikeIcon className="h-4 w-4" />
             </Button>
           </div>
-
           <Separator orientation="vertical" className="mx-1 h-8" />
-
-          {/* Text Alignment */}
           <div className="flex items-center">
             <Button
               onClick={() => editor.chain().focus().setTextAlign('left').run()}
@@ -150,7 +162,6 @@ function CoverLetterEditor({
             >
               <AlignLeft className="h-4 w-4" />
             </Button>
-            
             <Button
               onClick={() => editor.chain().focus().setTextAlign('center').run()}
               className={cn(
@@ -162,7 +173,6 @@ function CoverLetterEditor({
             >
               <AlignCenter className="h-4 w-4" />
             </Button>
-            
             <Button
               onClick={() => editor.chain().focus().setTextAlign('right').run()}
               className={cn(
@@ -175,10 +185,7 @@ function CoverLetterEditor({
               <AlignRight className="h-4 w-4" />
             </Button>
           </div>
-
           <Separator orientation="vertical" className="mx-1 h-8" />
-
-          {/* Headings */}
           <div className="flex items-center">
             <Button
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -191,7 +198,6 @@ function CoverLetterEditor({
             >
               <Heading1 className="h-4 w-4" />
             </Button>
-            
             <Button
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
               className={cn(
@@ -206,33 +212,50 @@ function CoverLetterEditor({
           </div>
         </BubbleMenu>
       )}
-      <div className={cn(
-        "relative pb-[129.41%] print:!pb-0",
-        isPrintVersion && "!pb-0 !relative !shadow-none"
-      )}>
+      <div
+        className={cn(
+          "relative",
+          isPrintVersion ? "pb-0" : "pb-[129.41%] print:!pb-0"
+        )}
+        style={isPrintVersion ? undefined : { minHeight: 1056 * scale }}
+      >
         <div 
           className={cn(
-            "absolute inset-0 origin-top-left h-full print:!relative",
-            isPrintVersion && "!relative !transform-none !w-full !h-auto"
+            "origin-top-left bg-white",
+            isPrintVersion
+              ? "relative w-full"
+              : "absolute top-0 left-0"
           )}
-          style={!isPrintVersion ? {
-            transform: `scale(${containerWidth / 816})`,
-            width: `${(100 / (containerWidth / 816))}%`,
-            height: `${(100 / (containerWidth / 816))}%`,
-          } : {}}
+          style={
+            isPrintVersion
+              ? pageStyle
+              : {
+                  transform: `scale(${scale})`,
+                  width: 816,
+                  minHeight: 1056,
+                  ...pageStyle,
+                }
+          }
         >
-          <div className={cn(
-            "absolute inset-0 my-12 mx-16 overflow-hidden",
-            isPrintVersion && "!my-0 !mx-8"
-          )}>
-            <EditorContent 
-              editor={editor} 
-              className={cn(
-                "h-full focus:outline-none prose prose-xxs max-w-none flex flex-col",
-                isPrintVersion && "!prose-sm !text-[12pt]"
-              )}
-            />
-          </div>
+          <style>{`
+            .cover-letter-prose p {
+              margin-bottom: ${settings.paragraph_spacing}px;
+            }
+            .cover-letter-prose p:last-child {
+              margin-bottom: 0;
+            }
+            .cover-letter-prose h1 {
+              font-size: ${settings.document_font_size + 4}pt;
+              font-weight: 700;
+              margin-bottom: ${settings.paragraph_spacing}px;
+            }
+            .cover-letter-prose h2 {
+              font-size: ${settings.document_font_size + 2}pt;
+              font-weight: 600;
+              margin-bottom: ${settings.paragraph_spacing}px;
+            }
+          `}</style>
+          <EditorContent editor={editor} className="cover-letter-prose min-h-[900px]" />
         </div>
       </div>
     </div>

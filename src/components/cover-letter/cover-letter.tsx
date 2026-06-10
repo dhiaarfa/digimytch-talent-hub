@@ -5,6 +5,10 @@ import { Plus } from "lucide-react";
 import { useResumeContext } from '@/components/resume/editor/resume-editor-context';
 import { sanitizeRichTextHtml } from '@/lib/html-safety';
 import { resumeLabels } from "@/lib/resume-labels";
+import {
+  hasCoverLetterContent,
+  normalizeCoverLetterContent,
+} from "@/lib/cover-letter-html";
 
 
 interface CoverLetterProps {
@@ -17,7 +21,12 @@ export default function CoverLetter({ containerWidth }: CoverLetterProps) {
   const L = resumeLabels();
   const contentRef = useRef<HTMLDivElement>(null);
   const sanitizedCoverLetterContent = useMemo(
-    () => sanitizeRichTextHtml((state.resume.cover_letter?.content as string) || ''),
+    () =>
+      sanitizeRichTextHtml(
+        normalizeCoverLetterContent(
+          (state.resume.cover_letter?.content as string) || ""
+        )
+      ),
     [state.resume.cover_letter?.content]
   );
 
@@ -33,7 +42,7 @@ export default function CoverLetter({ containerWidth }: CoverLetterProps) {
   }, [dispatch]);
 
 
-  if (!state.resume.has_cover_letter) {
+  if (!hasCoverLetterContent(state.resume)) {
     return (
       <div className="space-y-4">
         <Button

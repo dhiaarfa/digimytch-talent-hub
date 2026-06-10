@@ -72,7 +72,7 @@ export function DescriptionPoint({
         />
         {isImproved && (
           <div className="absolute -top-2.5 right-12 px-2 py-0.5 bg-purple-100 rounded-full">
-            <span className="text-[10px] font-medium text-purple-600 flex items-center gap-1">
+            <span className="text-xs font-medium text-purple-600 flex items-center gap-1">
               <Sparkles className="h-3 w-3" />
               {L.aiSuggestion}
             </span>

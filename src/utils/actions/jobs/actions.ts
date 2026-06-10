@@ -1,4 +1,5 @@
 'use server';
+import { logger } from '@/lib/logger';
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from 'next/cache';
@@ -6,6 +7,7 @@ import { simplifiedJobSchema } from "@/lib/zod-schemas";
 import type { Job } from "@/lib/types";
 import { z } from "zod";
 import { JobListingParams } from "./schema";
+import { queueJobEmbedding } from "@/utils/actions/embeddings/actions";
 
 export async function createJob(jobListing: z.infer<typeof simplifiedJobSchema>) {
   
@@ -37,14 +39,42 @@ export async function createJob(jobListing: z.infer<typeof simplifiedJobSchema>)
     .single();
 
   if (error) {
-    console.error('[createJob] Error creating job:', error);
+    logger.error('[createJob] Error creating job:', error);
     throw error;
   }
 
   revalidatePath('/jobs');
   revalidatePath('/home');
 
+  void queueJobEmbedding(data.id);
+
   return data;
+}
+
+export async function getJobById(jobId: string): Promise<Job | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("id", jobId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as Job;
 }
 
 export async function deleteJob(jobId: string): Promise<void> {
@@ -61,14 +91,23 @@ export async function deleteJob(jobId: string): Promise<void> {
     .select('id')
     .eq('job_id', jobId);
 
-  // Delete the job
+  const deletedAt = new Date().toISOString();
+
+  await supabase
+    .from("job_applications")
+    .update({ deleted_at: deletedAt })
+    .eq("job_id", jobId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+
   const { error: deleteError } = await supabase
     .from('jobs')
-    .delete()
-    .eq('id', jobId);
+    .update({ deleted_at: deletedAt })
+    .eq('id', jobId)
+    .eq('user_id', user.id);
 
   if (deleteError) {
-    console.error('Delete error:', deleteError);
+    logger.error('Delete error:', deleteError);
     throw new Error('Failed to delete job');
   }
 
@@ -83,6 +122,7 @@ export async function deleteJob(jobId: string): Promise<void> {
   revalidatePath('/jobs');
   revalidatePath('/candidatures');
   revalidatePath('/home');
+  revalidatePath('/corbeille');
 }
 
 
@@ -110,6 +150,7 @@ export async function getJobListings({
     .select('*', { count: 'exact' })
     .eq('user_id', user.id)
     .eq('is_active', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   // Apply filters if they exist
@@ -130,7 +171,7 @@ export async function getJobListings({
     .range(offset, offset + pageSize - 1);
 
   if (error) {
-    console.error('Error fetching jobs:', error);
+    logger.error('Error fetching jobs:', error);
     throw new Error('Failed to fetch job listings');
   }
 
@@ -186,7 +227,7 @@ export async function createEmptyJob(): Promise<Job> {
     .single();
 
   if (error) {
-    console.error('Error creating job:', error);
+    logger.error('Error creating job:', error);
     throw new Error('Failed to create job');
   }
 

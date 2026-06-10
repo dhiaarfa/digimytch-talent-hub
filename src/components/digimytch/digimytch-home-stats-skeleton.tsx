@@ -1,15 +1,19 @@
 export function DigimytchHomeStatsSkeleton() {
   return (
-    <div className="space-y-6 mb-8 animate-pulse">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {[1, 2, 3, 4].map((i) => (
+    <div className="space-y-4 mb-6">
+      {/* KPI grid skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
           <div
             key={i}
-            className="h-28 rounded-xl bg-white border border-[var(--digi-border)]"
+            className="h-[106px] rounded-2xl skeleton"
+            style={{ animationDelay: `${i * 80}ms` }}
+            aria-hidden
           />
         ))}
       </div>
-      <div className="h-24 rounded-xl bg-white border border-[var(--digi-border)]" />
+      {/* Next action skeleton */}
+      <div className="h-[88px] rounded-2xl skeleton" aria-hidden />
     </div>
   );
 }

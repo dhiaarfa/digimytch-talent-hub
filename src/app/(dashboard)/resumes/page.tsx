@@ -1,15 +1,19 @@
 import { getDashboardData } from "@/utils/actions";
+import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Link from "next/link";
-import { MiniResumePreview } from "@/components/resume/shared/mini-resume-preview";
+import { AdaptJobLauncher } from "@/components/jobs/adapt-job-launcher";
 import { ResumeSortControls } from "@/components/resume/management/resume-sort-controls";
 import type { SortOption, SortDirection } from "@/components/resume/management/resume-sort-controls";
 import { NewResumeButton } from "@/components/resume/management/new-resume-button";
+import { TailoredResumeButton } from "@/components/resume/management/tailored-resume-button";
+import { NewLetterButton } from "@/components/resume/management/new-letter-button";
+import { ResumesLettersHub } from "@/components/resume/management/resumes-letters-hub";
 import { DemoBanner } from "@/components/digimytch/demo-banner";
 import { PageGuide } from "@/components/digimytch/page-guide";
+import { PageLoadError } from "@/components/digimytch/page-load-error";
 
-const RESUMES_PER_PAGE = 12;
+const RESUMES_PER_PAGE = 24;
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -23,8 +27,13 @@ export default async function ResumesPage({
   let data;
   try {
     data = await getDashboardData();
-  } catch {
-    redirect("/home");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Impossible de charger vos CV.";
+    return (
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <PageLoadError title="Mes CV & lettres" description={msg} />
+      </main>
+    );
   }
 
   if (!data.profile) {
@@ -56,51 +65,71 @@ export default async function ResumesPage({
     currentPage * RESUMES_PER_PAGE
   );
 
+  const jobTitlesByResumeId: Record<string, string> = {};
+  const jobIds = [...new Set(allResumes.map((r) => r.job_id).filter((id): id is string => Boolean(id)))];
+  if (jobIds.length > 0 && profile.user_id) {
+    const supabase = await createClient();
+    const { data: jobs } = await supabase
+      .from("jobs")
+      .select("id, position_title, company_name")
+      .eq("user_id", profile.user_id)
+      .in("id", jobIds)
+      .is("deleted_at", null);
+    const jobMap = new Map(
+      (jobs ?? []).map((j) => [
+        j.id,
+        [j.position_title, j.company_name].filter(Boolean).join(" · "),
+      ])
+    );
+    for (const resume of paginatedResumes) {
+      if (resume.job_id && jobMap.has(resume.job_id)) {
+        jobTitlesByResumeId[resume.id] = jobMap.get(resume.job_id)!;
+      }
+    }
+  }
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <DemoBanner />
+      <Suspense>
+        <AdaptJobLauncher profile={profile} baseResumes={baseResumes} />
+      </Suspense>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageGuide
-          title="Mes CV"
-          description="Créez un CV de base (référence pour le matching), puis des CV sur mesure par offre si besoin."
+          title="Mon CV & lettres"
+          description="Gérez vos CV et vos lettres de motivation. Chaque lettre est liée à une offre et à un CV sur mesure."
           steps={[
-            "Cliquez sur « Nouveau CV » pour créer votre CV de base.",
-            "Renseignez le poste visé et importez le contenu de votre profil.",
-            "Ouvrez un CV dans la grille pour l'éditer.",
+            "Créez un CV de base, puis un CV sur mesure pour une offre.",
+            "Score CV : analysez un CV importé sans ouvrir l'éditeur.",
+            "Depuis « Nouvelle lettre », liez offre + CV pour rédiger la lettre.",
           ]}
+          action={{ label: "Score CV →", href: "/score-cv" }}
         />
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Suspense>
             <ResumeSortControls />
           </Suspense>
+          <NewLetterButton profile={profile} baseResumes={baseResumes} />
+          <TailoredResumeButton profile={profile} baseResumes={baseResumes} />
           <NewResumeButton profile={profile} baseResumes={baseResumes} />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {paginatedResumes.map((resume) => (
-          <Link href={`/resumes/${resume.id}`} key={resume.id} className="block">
-            <MiniResumePreview
-              name={resume.name}
-              type={resume.is_base_resume ? "base" : "tailored"}
-              target_role={resume.target_role}
-              updatedAt={resume.updated_at}
-              className="hover:-translate-y-0.5 transition-transform border border-[var(--digi-border)] rounded-lg"
-            />
-          </Link>
-        ))}
-      </div>
+      <ResumesLettersHub
+        resumes={paginatedResumes}
+        jobTitlesByResumeId={jobTitlesByResumeId}
+      />
 
       {paginatedResumes.length === 0 && (
         <p className="text-center text-sm text-[var(--digi-muted)] py-12 rounded-xl border border-dashed border-[var(--digi-border)]">
-          Aucun CV pour l&apos;instant. Utilisez le bouton « Nouveau CV » ci-dessus.
+          Aucun document pour l&apos;instant. Commencez par « Nouveau CV ».
         </p>
       )}
 
       {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
+        <div className="flex justify-center gap-2 flex-wrap">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <Link
+            <a
               key={page}
               href={`/resumes?page=${page}`}
               className={`px-3 py-1 rounded-md text-sm ${
@@ -110,7 +139,7 @@ export default async function ResumesPage({
               }`}
             >
               {page}
-            </Link>
+            </a>
           ))}
         </div>
       )}

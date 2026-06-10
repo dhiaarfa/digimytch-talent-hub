@@ -1,4 +1,5 @@
 import { makeSilentTestWav } from "@/lib/stt-test-audio";
+import { getOpenRouterApiKey, OPENROUTER_KEY_SETUP_HINT } from "@/lib/openrouter-config";
 
 /**
  * Vérifie si OpenRouter peut traiter l'audio (Whisper) avec le solde actuel.
@@ -17,12 +18,12 @@ export type OpenRouterCapabilities = {
 const MIN_AUDIO_BALANCE_USD = 0.5;
 
 export async function getOpenRouterCapabilities(): Promise<OpenRouterCapabilities> {
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
     return {
       keyValid: false,
       audioSttAvailable: false,
-      hint: "Ajoutez OPENROUTER_API_KEY dans .env (https://openrouter.ai/keys).",
+      hint: OPENROUTER_KEY_SETUP_HINT,
     };
   }
 

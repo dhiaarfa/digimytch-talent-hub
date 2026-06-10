@@ -205,7 +205,7 @@ export function SkillsForm({
                       variant="secondary"
                       className={cn(
                         "bg-white/60 hover:bg-white/80 text-rose-700 border border-rose-200 py-0.5",
-                        "transition-all duration-300 group/badge cursor-default text-[10px] sm:text-xs"
+                        "transition-all duration-300 group/badge cursor-default text-xs sm:text-xs"
                       )}
                     >
                       {item}
@@ -230,7 +230,7 @@ export function SkillsForm({
                       "focus:border-rose-500/40 focus:ring-2 focus:ring-rose-500/20",
                       "hover:border-rose-500/30 hover:bg-white/60 transition-colors",
                       "placeholder:text-gray-400",
-                      "text-[10px] sm:text-xs"
+                      "text-xs sm:text-xs"
                     )}
                     placeholder="Type a skill and press Enter or click +"
                   />

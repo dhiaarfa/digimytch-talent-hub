@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bell, X, CheckCircle, Info, AlertCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 export type Notification = {
   id: string
@@ -36,8 +37,12 @@ export function addNotification(
   toast(notif.title, { description: notif.message })
 }
 
-export function NotificationBell() {
+export function NotificationBell({ align = "start" }: { align?: "start" | "end" }) {
   const [open, setOpen] = useState(false)
+  const panelAlign =
+    align === "end"
+      ? "right-0 left-auto"
+      : "left-0 right-auto"
   const [notifs, setNotifs] = useState<Notification[]>([])
 
   useEffect(() => {
@@ -94,7 +99,10 @@ export function NotificationBell() {
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className="absolute right-0 top-full mt-2 w-80 bg-white border border-[var(--digi-border)] rounded-xl shadow-xl z-50 overflow-hidden"
+              className={cn(
+                "absolute top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] max-w-80 bg-white border border-[var(--digi-border)] rounded-xl shadow-xl z-50 overflow-hidden",
+                panelAlign
+              )}
             >
               <div className="flex items-center justify-between px-4 py-3 border-b">
                 <h3 className="font-semibold text-sm">Notifications</h3>

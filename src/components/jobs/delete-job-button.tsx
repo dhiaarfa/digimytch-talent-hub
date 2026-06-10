@@ -40,8 +40,8 @@ export function DeleteJobButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Supprimer cette offre ?</AlertDialogTitle>
           <AlertDialogDescription>
-            L&apos;offre « {jobTitle} » sera retirée de votre liste. Les candidatures liées peuvent
-            rester dans Mes candidatures.
+            L&apos;offre « {jobTitle} » et les candidatures liées seront déplacées vers la corbeille
+            (récupérables 30 jours).
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

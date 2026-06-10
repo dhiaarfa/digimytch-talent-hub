@@ -11,41 +11,30 @@ interface PreviewPanelProps {
   resume: Resume;
   onResumeChange: (field: keyof Resume, value: Resume[keyof Resume]) => void;
   width: number;
-  // percentWidth: number;
+  showCoverLetter?: boolean;
 }
 
 export function PreviewPanel({
   resume,
-  // onResumeChange,
-  width
+  width,
+  showCoverLetter = false,
 }: PreviewPanelProps) {
   return (
-    <ScrollArea className={cn(
-      "z-50 h-full",
-      resume.is_base_resume
-        ? "bg-purple-50/30"
-        : "bg-pink-50/60 shadow-sm shadow-pink-200/20"
-    )}>
-      <div className="">
-      <ResumeContextMenu resume={resume}>
+    <ScrollArea
+      className={cn(
+        "z-50 h-full",
+        resume.is_base_resume
+          ? "bg-purple-50/30"
+          : "bg-pink-50/60 shadow-sm shadow-pink-200/20"
+      )}
+    >
+      <div>
+        <ResumeContextMenu resume={resume}>
           <ResumePreview resume={resume} containerWidth={width} />
         </ResumeContextMenu>
       </div>
 
-      <CoverLetter 
-        // resumeId={resume.id} 
-        // hasCoverLetter={resume.has_cover_letter}
-        // coverLetterData={resume.cover_letter}
-        containerWidth={width}
-        // onCoverLetterChange={(data: Record<string, unknown>) => {
-        //   if ('has_cover_letter' in data) {
-        //     onResumeChange('has_cover_letter', data.has_cover_letter as boolean);
-        //   }
-        //   if ('cover_letter' in data) {    
-        //     onResumeChange('cover_letter', data.cover_letter as Record<string, unknown>);
-        //   }
-        // }}
-      />
+      {showCoverLetter && <CoverLetter containerWidth={width} />}
     </ScrollArea>
   );
 } 

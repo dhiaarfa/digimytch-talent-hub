@@ -75,6 +75,12 @@ const RESUME_LABELS_EN = {
   emptySection: "empty",
   copyBaseResume: "Copy Base Resume",
   leaveWithoutSaving: "Leave Without Saving",
+  saveAndLeave: "Save and leave",
+  unsavedChangesDescription:
+    "You have unsaved changes. What would you like to do before leaving this page?",
+  discardDraftTitle: "Discard changes?",
+  discardDraftDescription: "Information you entered will be lost if you close now.",
+  discard: "Discard",
   clearChatHistoryTitle: "Clear Chat History",
   clearChatHistoryDesc: "This will permanently delete all your chat conversations. This action cannot be undone.",
   chooseBaseResume: "Choose a base resume to start with",

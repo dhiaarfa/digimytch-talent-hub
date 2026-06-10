@@ -1,6 +1,7 @@
 // src/app/api/webhooks/stripe/route.ts
 
 import { headers } from 'next/headers'
+import { logger } from '@/lib/logger'
 import type Stripe from 'stripe'
 import { manageSubscriptionStatusChange } from '@/utils/actions/stripe/actions'
 import { createServiceClient } from '@/utils/supabase/server'
@@ -116,7 +117,7 @@ async function handleSubscriptionChange(
 ): Promise<Partial<Subscription>> {
   try {
     // Enhanced initial logging
-    console.log('🔔 Subscription Status Update:', {
+    logger.debug('🔔 Subscription Status Update:', {
       event: 'subscription_change',
       timestamp: new Date().toISOString(),
       customerId: stripeCustomerId,
@@ -129,7 +130,7 @@ async function handleSubscriptionChange(
       stripeCustomerId
     );
     
-    console.log('✨ Final Subscription State:', {
+    logger.debug('✨ Final Subscription State:', {
       result: 'success',
       updatedAt: new Date().toISOString(),
       subscriptionId,
@@ -137,7 +138,7 @@ async function handleSubscriptionChange(
 
     return subscriptionData;
   } catch (error) {
-    console.error('❌ Subscription Update Failed:', {
+    logger.error('❌ Subscription Update Failed:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       errorObject: error,
       timestamp: new Date().toISOString(),
@@ -191,7 +192,7 @@ async function captureSubscriptionLifecycleEvent(input: {
 
 export async function POST(req: Request) {
   try {
-    console.log('🌐 Incoming Webhook Request:', {
+    logger.debug('🌐 Incoming Webhook Request:', {
       method: req.method,
       url: req.url,
       timestamp: new Date().toISOString()
@@ -201,7 +202,7 @@ export async function POST(req: Request) {
     const signature = (await headers()).get('stripe-signature')
 
     if (!signature) {
-      console.error('❌ Missing Stripe Signature Header');
+      logger.error('❌ Missing Stripe Signature Header');
       return new Response(
         JSON.stringify({ error: 'Missing stripe-signature header' }),
         { 
@@ -213,17 +214,17 @@ export async function POST(req: Request) {
 
     const idempotencyKey = (await headers()).get('stripe-idempotency-key');
     if (idempotencyKey) {
-      console.log('🔑 Processing webhook with idempotency key:', idempotencyKey);
+      logger.debug('🔑 Processing webhook with idempotency key:', idempotencyKey);
     }
 
     let event: Stripe.Event
     try {
-      console.log('🔍 Verifying webhook signature...');
+      logger.debug('🔍 Verifying webhook signature...');
       event = getStripeServer().webhooks.constructEvent(body, signature, webhookSecret)
-      console.log('✅ Webhook signature verified successfully');
+      logger.debug('✅ Webhook signature verified successfully');
     } catch (err: unknown) {
       const error = err as Error
-      console.error('❌ Webhook signature verification failed:', {
+      logger.error('❌ Webhook signature verification failed:', {
         error: error.message,
         stack: error.stack,
         timestamp: new Date().toISOString()
@@ -237,14 +238,14 @@ export async function POST(req: Request) {
       )
     }
 
-    console.log('📨 Received Stripe Event:', {
+    logger.debug('📨 Received Stripe Event:', {
       type: event.type,
       id: event.id,
       created: new Date(event.created * 1000).toISOString()
     });
 
     if (!relevantEvents.has(event.type)) {
-      console.log('ℹ️ Skipping unhandled event type:', event.type);
+      logger.debug('ℹ️ Skipping unhandled event type:', event.type);
       return new Response(
         JSON.stringify({ received: true, processed: false, message: `Event type ${event.type} was received but not processed` }),
         { 
@@ -257,7 +258,7 @@ export async function POST(req: Request) {
     const supabase = await createServiceClient();
     const webhookEventAction = await reserveWebhookEvent(supabase, event);
     if (webhookEventAction === 'skip') {
-      console.log('↩️ Duplicate webhook event already processed, skipping:', event.id);
+      logger.debug('↩️ Duplicate webhook event already processed, skipping:', event.id);
       return new Response(
         JSON.stringify({ received: true, processed: false, duplicate: true }),
         {
@@ -320,7 +321,7 @@ export async function POST(req: Request) {
           : null;
         
         // Enhanced logging for subscription updates
-        console.log('📝 Subscription Update Details:', {
+        logger.debug('📝 Subscription Update Details:', {
           event: event.type,
           customerId: subscription.customer,
           subscriptionId: subscription.id,
@@ -338,7 +339,7 @@ export async function POST(req: Request) {
 
         // Add specific cancellation notice if detected
         if (subscription.cancel_at_period_end) {
-          console.log('🚫 Subscription Cancellation Scheduled:', {
+          logger.debug('🚫 Subscription Cancellation Scheduled:', {
             message: 'Subscription will remain active until period end',
             activeUntil: currentPeriodEnd,
             willAutoRenew: false
@@ -359,7 +360,7 @@ export async function POST(req: Request) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         
-        console.log('🗑️ Processing subscription deletion:', {
+        logger.debug('🗑️ Processing subscription deletion:', {
           subscriptionId: subscription.id,
           customerId: subscription.customer,
           canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
@@ -375,7 +376,7 @@ export async function POST(req: Request) {
           eventType: event.type,
           subscriptionData,
         });
-        console.log('✅ Subscription deletion processed successfully');
+        logger.debug('✅ Subscription deletion processed successfully');
         break;
       }
 
@@ -390,7 +391,7 @@ export async function POST(req: Request) {
 
           if (error) throw error;
           
-          console.log('🗑️ Deleted subscription record for customer:', {
+          logger.debug('🗑️ Deleted subscription record for customer:', {
             customerId: customer.id,
             supabaseUUID: customer.metadata.supabaseUUID
           });
@@ -406,7 +407,7 @@ export async function POST(req: Request) {
             },
           });
         } catch (error) {
-          console.error('❌ Failed to clear Stripe customer data:', error);
+          logger.error('❌ Failed to clear Stripe customer data:', error);
           throw error;
         }
         break;
@@ -419,7 +420,7 @@ export async function POST(req: Request) {
 
     await markWebhookEventProcessed(supabase, event.id);
 
-    console.log('✅ Webhook processed successfully:', {
+    logger.debug('✅ Webhook processed successfully:', {
       eventType: event.type,
       timestamp: new Date().toISOString()
     });
@@ -433,7 +434,7 @@ export async function POST(req: Request) {
     )
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('🔥 Webhook handler failed:', {
+    logger.error('🔥 Webhook handler failed:', {
       error: error.message,
       stack: error.stack,
       type: error.name,

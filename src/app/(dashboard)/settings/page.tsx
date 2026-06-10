@@ -1,28 +1,21 @@
-// src/app/settings/page.tsx
+import { SettingsContent } from "@/components/settings/settings-content";
+import { createClient } from "@/utils/supabase/server";
+import { getCachedSubscriptionForSession } from "@/lib/cached-subscription";
+import { isAdminUser } from "@/lib/digimytch-config";
 
-"use server"
-
-import { SettingsContent } from '@/components/settings/settings-content'
-import { createClient } from '@/utils/supabase/server'
-import { getSubscriptionAccessState } from '@/lib/subscription-access';
-import { isAdminUser } from '@/lib/digimytch-config';
-
+export const revalidate = 3600;
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { data: subscription } = user
-    ? await supabase
-        .from('subscriptions')
-        .select('subscription_plan, subscription_status, current_period_end, trial_end, stripe_subscription_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-    : { data: null };
+  const { row: subscription, access: subscriptionState } =
+    await getCachedSubscriptionForSession();
 
-  const subscriptionState = getSubscriptionAccessState(subscription);
   const isProPlan = subscriptionState.hasProAccess;
-  const subscriptionStatus = subscription?.subscription_status ?? '';
+  const subscriptionStatus = subscription?.subscription_status ?? "";
 
   const { data: profile } = user
     ? await supabase
@@ -43,10 +36,7 @@ export default async function SettingsPage() {
     ? {
         email: user.email ?? "",
         full_name: displayName,
-        avatar_url:
-          profile?.avatar_url ||
-          meta?.avatar_url ||
-          null,
+        avatar_url: profile?.avatar_url || meta?.avatar_url || null,
       }
     : null;
 
@@ -59,9 +49,9 @@ export default async function SettingsPage() {
           isProPlan={isProPlan}
           subscriptionStatus={subscriptionStatus}
           subscriptionSnapshot={subscription}
-          isAdmin={isAdminUser(user?.email)}
+          isAdmin={isAdminUser(user)}
         />
       </main>
     </div>
-  )
+  );
 }

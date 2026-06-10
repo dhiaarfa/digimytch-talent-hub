@@ -1,13 +1,19 @@
 "use server";
+import { logger } from '@/lib/logger';
 
 import { isDigimytchTalentHub } from "@/lib/digimytch-config";
 import { createClient } from "@/utils/supabase/server";
-import { collectResumeSkillTokens, computeResumeJobMatch } from "@/lib/matching";
+import { applyHybridToMatch, collectResumeSkillTokens, computeResumeJobMatch } from "@/lib/matching";
+import { fetchSemanticSimilarityMap } from "@/lib/semantic-matching";
+import { ensureJobEmbedding } from "@/utils/actions/embeddings/actions";
+import { formatEmbeddingForPg } from "@/lib/embeddings";
+import { buildResumeEmbeddingText } from "@/lib/embeddings-text";
+import { generateEmbedding } from "@/lib/embeddings";
 import { listCourses } from "@/utils/actions/courses/actions";
 import { rankCoursesBySkillGaps } from "@/lib/course-ranking";
 import type { Job, JobMatchResult, Resume } from "@/lib/types";
 import { getCachedJobsWithMatch } from "@/lib/digimytch-queries";
-import { ensureDemoJobsIfEmpty } from "@/utils/actions/digimytch/seed-demo-jobs";
+import { getCachedAuthUser } from "@/lib/server-auth";
 
 export interface JobWithMatch {
   job: Job;
@@ -18,24 +24,25 @@ export async function getJobsWithMatchScores(): Promise<{
   resume: Resume | null;
   jobsWithMatch: JobWithMatch[];
 }> {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const { user } = await getCachedAuthUser();
+  if (!user) {
     throw new Error("Non authentifié");
   }
 
-  await ensureDemoJobsIfEmpty().catch(() => {
-    /* démo optionnelle */
-  });
+  const supabase = await createClient();
 
   const { data: resumeRows } = await supabase
     .from("resumes")
-    .select("*")
+    .select(
+      "id, user_id, name, target_role, is_base_resume, job_id, skills, work_experience, education, email, phone_number, first_name, last_name, professional_summary, projects"
+    )
     .eq("user_id", user.id)
     .eq("is_base_resume", true)
-    .order("updated_at", { ascending: false });
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(3);
 
-  const bases = (resumeRows ?? []) as Resume[];
+  const bases = (resumeRows ?? []) as unknown as Resume[];
   const resumeRow = bases[0] ?? null;
 
   const mergeDigimytch =
@@ -49,13 +56,15 @@ export async function getJobsWithMatchScores(): Promise<{
 
   const { data: jobRows, error: jobErr } = await supabase
     .from("jobs")
-    .select("*")
+    .select("id, user_id, company_name, position_title, job_url, description, location, salary_range, keywords, work_location, employment_type, created_at, updated_at, is_active")
     .eq("user_id", user.id)
     .eq("is_active", true)
-    .order("created_at", { ascending: false });
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(40);
 
   if (jobErr) {
-    console.error("[getJobsWithMatchScores] jobs", jobErr);
+    logger.error("[getJobsWithMatchScores] jobs", jobErr);
     throw new Error("Impossible de charger les offres.");
   }
 
@@ -67,7 +76,7 @@ export async function getJobsWithMatchScores(): Promise<{
       jobsWithMatch: jobs.map((job) => ({
         job,
         match: {
-          score: 0,
+          score: -1, // -1 = no CV (never show as 0/100)
           matchedKeywords: [],
           missingKeywords: job.keywords ?? [],
           matchedSkills: [],
@@ -87,6 +96,61 @@ export async function getJobsWithMatchScores(): Promise<{
 
   jobsWithMatch.sort((a, b) => b.match.score - a.match.score);
 
+  return { resume, jobsWithMatch };
+}
+
+/** Matching hybride (pgvector + mots-clés) pour la page /jobs. */
+export async function getHybridJobsWithMatchScores(): Promise<{
+  resume: Resume | null;
+  jobsWithMatch: JobWithMatch[];
+}> {
+  const base = await getJobsWithMatchScores();
+  if (!base.resume) return base;
+
+  const { user } = await getCachedAuthUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const resume = base.resume;
+
+  await Promise.all(
+    base.jobsWithMatch.map(({ job }) => ensureJobEmbedding(job.id))
+  );
+
+  const supabase = await createClient();
+  let semanticMap = new Map<string, number>();
+
+  const { data: resumeEmbRow } = await supabase
+    .from("resumes")
+    .select("embedding")
+    .eq("id", resume.id)
+    .maybeSingle();
+
+  let resumeEmbedding = resumeEmbRow?.embedding as string | null;
+
+  if (!resumeEmbedding) {
+    try {
+      const vector = await generateEmbedding(buildResumeEmbeddingText(resume));
+      resumeEmbedding = formatEmbeddingForPg(vector);
+      await supabase
+        .from("resumes")
+        .update({ embedding: resumeEmbedding })
+        .eq("id", resume.id)
+        .eq("user_id", user.id);
+    } catch (e) {
+      logger.warn("[getHybridJobsWithMatchScores] resume embedding", e);
+    }
+  }
+
+  if (resumeEmbedding) {
+    semanticMap = await fetchSemanticSimilarityMap(user.id, resumeEmbedding);
+  }
+
+  const jobsWithMatch = base.jobsWithMatch.map(({ job, match }) => {
+    const semantic = semanticMap.get(job.id) ?? null;
+    return { job, match: applyHybridToMatch(match, semantic) };
+  });
+
+  jobsWithMatch.sort((a, b) => b.match.score - a.match.score);
   return { resume, jobsWithMatch };
 }
 

@@ -13,6 +13,7 @@ import type { SubscriptionSnapshot } from "@/lib/subscription-access"
 import { isDigimytchTalentHub } from "@/lib/digimytch-config"
 import { PFE_TAGLINE } from "@/lib/digimytch-branding"
 import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
 import { ProfileSection, type ProfileSectionUser } from "./profile-section"
 
 const allSections = [
@@ -121,6 +122,13 @@ export function SettingsContent({
 
       {/* Content */}
       <div className="flex-1 space-y-8">
+        <Link
+          href="/home"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-[var(--digi-navy)] transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+          Tableau de bord
+        </Link>
         {profileUser && (
           <ProfileSection user={profileUser} />
         )}

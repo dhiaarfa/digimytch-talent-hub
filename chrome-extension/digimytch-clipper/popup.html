@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digimytch Job Clipper</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        width: 380px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        font-size: 13px;
+        color: #1a1a2e;
+        background: #f8fafc;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: #2e4057;
+        color: #fff;
+      }
+      .logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: #4a90a4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 14px;
+      }
+      .header h1 { font-size: 15px; font-weight: 600; }
+      .body { padding: 16px; }
+      .muted { color: #64748b; font-size: 12px; line-height: 1.5; }
+      .login-box {
+        text-align: center;
+        padding: 24px 16px;
+      }
+      .login-box a {
+        color: #2e4057;
+        font-weight: 600;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #475569;
+        margin-bottom: 4px;
+        margin-top: 12px;
+      }
+      label:first-child { margin-top: 0; }
+      input, select, textarea {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 13px;
+        background: #fff;
+      }
+      textarea {
+        min-height: 88px;
+        resize: vertical;
+        font-family: inherit;
+      }
+      textarea.collapsed { min-height: 56px; max-height: 56px; overflow: hidden; }
+      .expand-link {
+        font-size: 11px;
+        color: #4a90a4;
+        cursor: pointer;
+        margin-top: 4px;
+        display: inline-block;
+      }
+      .btn-primary {
+        width: 100%;
+        margin-top: 16px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        background: #2e4057;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .btn-primary:disabled { opacity: 0.6; cursor: wait; }
+      .error {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #fef2f2;
+        color: #b91c1c;
+        font-size: 12px;
+      }
+      .success {
+        text-align: center;
+        padding: 32px 16px;
+      }
+      .check {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 12px;
+        border-radius: 50%;
+        background: #dcfce7;
+        color: #16a34a;
+        font-size: 28px;
+        line-height: 48px;
+        animation: pop 0.4s ease;
+      }
+      @keyframes pop {
+        0% { transform: scale(0.5); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .success a {
+        display: inline-block;
+        margin-top: 12px;
+        color: #2e4057;
+        font-weight: 600;
+      }
+      .source-tag {
+        display: inline-block;
+        margin-bottom: 8px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="logo">D</div>
+      <h1>Job Clipper</h1>
+    </header>
+
+    <div id="login-view" class="body login-box hidden">
+      <p class="muted">Connectez-vous sur Digimytch Talent Hub pour enregistrer des offres.</p>
+      <p style="margin-top: 12px">
+        <a id="login-link" href="#" target="_blank" rel="noopener">Ouvrir Digimytch →</a>
+      </p>
+      <p class="muted" style="margin-top: 16px">
+        Ou configurez un JWT dans
+        <a href="#" id="options-link">Paramètres</a>.
+      </p>
+    </div>
+
+    <div id="form-view" class="body hidden">
+      <span id="source-tag" class="source-tag">generic</span>
+      <label for="title">Titre du poste</label>
+      <input id="title" type="text" placeholder="Développeur React" />
+
+      <label for="company">Entreprise</label>
+      <input id="company" type="text" placeholder="Entreprise" />
+
+      <label for="location">Localisation</label>
+      <input id="location" type="text" placeholder="Tunis, Remote…" />
+
+      <label for="description">Description</label>
+      <textarea id="description" class="collapsed" placeholder="Description de l'offre…"></textarea>
+      <span id="expand-desc" class="expand-link">Afficher tout ↓</span>
+
+      <label for="status">Ajouter à la colonne</label>
+      <select id="status">
+        <option value="saved">À postuler</option>
+        <option value="applied">Postulé</option>
+        <option value="interview">Entretien</option>
+        <option value="accepted">Accepté</option>
+        <option value="rejected">Rejeté</option>
+      </select>
+
+      <button id="save-btn" type="button" class="btn-primary">Enregistrer dans mon Kanban</button>
+      <div id="error-box" class="error hidden"></div>
+    </div>
+
+    <div id="success-view" class="body success hidden">
+      <div class="check">✓</div>
+      <p><strong>Ajouté !</strong></p>
+      <a id="success-link" href="#" target="_blank" rel="noopener">Voir sur Digimytch →</a>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

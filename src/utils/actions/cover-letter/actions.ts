@@ -1,9 +1,11 @@
 'use server';
+import { logger } from '@/lib/logger';
 
 import { generateText, LanguageModelV1, streamText } from 'ai';
 import { createStreamableValue } from 'ai/rsc';
 import { type AIConfig } from '@/utils/ai-tools';
-import { getSubscriptionPlan } from '../stripe/actions';
+import { getAIPlanState, resolveTaskModel } from '@/lib/ai/plan';
+import { normalizeCoverLetterContent } from '@/lib/cover-letter-html';
 import {
   finishAIUsageRequest,
   startAIUsageRequest,
@@ -13,10 +15,24 @@ export type CoverLetterResult =
   | { ok: true; content: string }
   | { ok: false; error: string };
 
-const COVER_LETTER_SYSTEM = `Tu es rédacteur de lettres de motivation pour Digimytch Talent Hub (Tunisie).
-Rédige en français professionnel, 400–550 mots, format HTML simple (balises <p> et <br /> uniquement).
-Structure : en-tête (date, entreprise si connue), accroche, valeur ajoutée, compétences, motivation, formule de politesse avec coordonnées du candidat.
-N'invente aucune expérience absente des données fournies. Ne mentionne aucun autre produit logiciel.`;
+const COVER_LETTER_SYSTEM = `Tu es rédacteur senior de lettres de motivation pour Digimytch Talent Hub (Tunisie / marché francophone).
+
+Rédige en français professionnel, clair et convaincant (380–520 mots).
+Format HTML simple : balises <p> et <br /> uniquement.
+
+Structure obligatoire :
+1. En-tête : date, coordonnées candidat, entreprise si connue
+2. Objet : « Candidature au poste de … »
+3. Accroche percutante (1 paragraphe) liée à l'offre
+4. Valeur ajoutée : 2 paragraphes avec compétences et réalisations du CV (verbes d'action, chiffres si présents)
+5. Motivation pour l'entreprise et le poste
+6. Formule de politesse avec signature (prénom nom)
+
+Normes :
+- Ton professionnel, direct, sans jargon creux ni formules datées (« je me permets de… » en excès)
+- Aligner le vocabulaire sur les mots-clés de l'offre sans surcharger
+- N'invente aucune expérience, diplôme ou compétence absente des données
+- Ne mentionne aucun autre produit logiciel que Digimytch Talent Hub si pertinent`;
 
 /** Génération fiable (sans stream) — recommandée pour la démo PFE */
 export async function generateCoverLetterText(
@@ -24,13 +40,16 @@ export async function generateCoverLetterText(
   config?: AIConfig
 ): Promise<CoverLetterResult> {
   try {
-    const { plan, id } = await getSubscriptionPlan(true);
-    const isPro = plan === 'pro';
+    const { isPro, userId } = await getAIPlanState();
+    const resolvedConfig = {
+      model: resolveTaskModel('lettre', isPro, config?.model),
+      apiKeys: config?.apiKeys ?? [],
+    };
 
     const { model, usageEventId } = await startAIUsageRequest({
-      userId: id ?? '',
+      userId,
       route: 'actions.coverLetter.generateText',
-      config,
+      config: resolvedConfig,
       isPro,
     });
 
@@ -47,8 +66,8 @@ export async function generateCoverLetterText(
       usage,
     });
 
-    const content = text?.trim();
-    if (!content) {
+    const content = normalizeCoverLetterContent(text?.trim());
+    if (!content || content === "<p></p>") {
       return { ok: false, error: "Réponse vide de l'assistant." };
     }
 
@@ -65,15 +84,18 @@ export async function generateCoverLetterText(
 export async function generate(input: string, config?: AIConfig) {
   try {
     const stream = createStreamableValue('');
-    const { plan, id } = await getSubscriptionPlan(true);
-    const isPro = plan === 'pro';
+    const { isPro, userId } = await getAIPlanState();
+    const resolvedConfig = {
+      model: resolveTaskModel('lettre', isPro, config?.model),
+      apiKeys: config?.apiKeys ?? [],
+    };
     const {
       model: aiClient,
       usageEventId,
     } = await startAIUsageRequest({
-      userId: id,
+      userId,
       route: 'actions.coverLetter.generate',
-      config,
+      config: resolvedConfig,
       isPro,
     });
 
@@ -162,10 +184,10 @@ export async function generate(input: string, config?: AIConfig) {
          const { promptTokens, completionTokens, totalTokens } = usage;
   
          // your own logic, e.g. for saving the chat history or recording usage
-         console.log('----------Usage:----------');
-         console.log('Prompt tokens:', promptTokens);
-         console.log('Completion tokens:', completionTokens);
-         console.log('Total tokens:', totalTokens);
+         logger.debug('----------Usage:----------');
+         logger.debug('Prompt tokens:', promptTokens);
+         logger.debug('Completion tokens:', completionTokens);
+         logger.debug('Total tokens:', totalTokens);
          await finishAIUsageRequest({
            usageEventId,
            status: 'succeeded',
@@ -192,7 +214,7 @@ export async function generate(input: string, config?: AIConfig) {
 
     return { output: stream.value };
   } catch (error) {
-    console.error('Error generating cover letter:', error);
+    logger.error('Error generating cover letter:', error);
     throw error;
   }
 }

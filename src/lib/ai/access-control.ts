@@ -1,9 +1,11 @@
 import {
   getModelById,
   getProviderById,
+  DIGIMYTCH_FREE_MODELS,
   type AIModel,
 } from "@/lib/ai-models";
 import type { ServiceName } from "@/lib/types";
+import { getOpenRouterApiKey } from "@/lib/openrouter-config";
 
 interface APIKeyInput {
   service: string;
@@ -47,7 +49,30 @@ const HIDDEN_MODELS: Record<string, HiddenModel> = {
 };
 
 function getKnownModel(modelId: string): HiddenModel | undefined {
-  return getModelById(modelId) ?? HIDDEN_MODELS[modelId];
+  const fromCatalog = getModelById(modelId);
+  if (fromCatalog) return fromCatalog;
+
+  const digimytchFree = DIGIMYTCH_FREE_MODELS.find((m) => m.id === modelId);
+  if (digimytchFree) {
+    return {
+      id: digimytchFree.id,
+      name: digimytchFree.name,
+      provider: "openrouter",
+      features: {
+        isFree: true,
+        isUnstable: false,
+        maxTokens: 128000,
+        supportsVision: false,
+        supportsTools: true,
+      },
+      availability: {
+        requiresApiKey: false,
+        requiresPro: false,
+      },
+    };
+  }
+
+  return HIDDEN_MODELS[modelId];
 }
 
 function findUserKey(apiKeys: ResolveAIRequestInput["apiKeys"], providerId: ServiceName) {
@@ -60,9 +85,14 @@ function getServerKey(providerId: ServiceName) {
     throw new Error(`Unsupported provider: ${providerId}`);
   }
 
+  const apiKey =
+    providerId === "openrouter"
+      ? getOpenRouterApiKey() ?? undefined
+      : process.env[provider.envKey]?.trim() || undefined;
+
   return {
     provider,
-    apiKey: process.env[provider.envKey],
+    apiKey,
   };
 }
 

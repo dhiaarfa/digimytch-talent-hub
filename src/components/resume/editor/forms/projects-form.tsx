@@ -506,7 +506,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
 
                 {/* Description Section */}
                 <div className="space-y-2 sm:space-y-3">
-                  <Label className="text-[10px] sm:text-xs font-medium text-violet-700">
+                  <Label className="text-xs sm:text-xs font-medium text-violet-700">
                     {tResume("Key Features & Technical Achievements", "Réalisations clés")}
                   </Label>
                   <div className="space-y-2 pl-0">
@@ -549,7 +549,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
 
                           {improvedPoints[index]?.[descIndex] && (
                             <div className="absolute -top-2.5 right-12 px-2 py-0.5 bg-purple-100 rounded-full">
-                              <span className="text-[10px] font-medium text-purple-600 flex items-center gap-1">
+                              <span className="text-xs font-medium text-purple-600 flex items-center gap-1">
                                 <Sparkles className="h-3 w-3" />
                                 {L.aiSuggestion}
                               </span>
@@ -690,7 +690,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                     />
 
                     {project.description.length === 0 && !aiSuggestions[index]?.length && (
-                      <div className="text-[10px] sm:text-xs text-gray-500 italic px-4 py-3 bg-gray-50/50 rounded-lg">
+                      <div className="text-xs sm:text-xs text-gray-500 italic px-4 py-3 bg-gray-50/50 rounded-lg">
                         Add points to describe your project&apos;s features and achievements
                       </div>
                     )}
@@ -706,7 +706,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                         onChange(updated);
                       }}
                       className={cn(
-                        "flex-1 text-violet-600 hover:text-violet-700 transition-colors text-[10px] sm:text-xs",
+                        "flex-1 text-violet-600 hover:text-violet-700 transition-colors text-xs sm:text-xs",
                         "border-violet-200 hover:border-violet-300 hover:bg-violet-50/50"
                       )}
                     >
@@ -745,7 +745,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
 
                 {/* Technologies Section */}
                 <div className="space-y-2 sm:space-y-3">
-                  <Label className="text-[10px] sm:text-xs font-medium text-violet-700">
+                  <Label className="text-xs sm:text-xs font-medium text-violet-700">
                     Technologies & Tools Used
                   </Label>
                   
@@ -758,7 +758,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                           variant="secondary"
                           className={cn(
                             "bg-white/60 hover:bg-white/80 text-violet-700 border border-violet-200 py-0.5",
-                            "transition-all duration-300 group/badge cursor-default text-[10px] sm:text-xs"
+                            "transition-all duration-300 group/badge cursor-default text-xs sm:text-xs"
                           )}
                         >
                           {tech}
@@ -783,7 +783,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                           "focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/20",
                           "hover:border-violet-500/30 hover:bg-white/60 transition-colors",
                           "placeholder:text-gray-400",
-                          "text-[10px] sm:text-xs"
+                          "text-xs sm:text-xs"
                         )}
                         placeholder="Type a technology and press Enter or click +"
                       />

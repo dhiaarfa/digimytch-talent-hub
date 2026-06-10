@@ -67,11 +67,25 @@ export interface Course {
   id: string;
   title: string;
   provider: string;
+  /** Institution name (Harvard, Google, Digimytch Academy, etc.) */
+  institution?: string | null;
+  institution_logo_url?: string | null;
   skills_targeted: string[];
   level: string;
   url: string | null;
   image_url?: string | null;
+  is_digimytch?: boolean;
+  loyalty_points_reward?: number;
+  duration_hours?: number | null;
+  certificate?: boolean;
   created_at: string;
+}
+
+/** Loyalty points balance */
+export interface LoyaltyPoints {
+  user_id: string;
+  points: number;
+  total_earned: number;
 }
 
 export const APPLICATION_STATUSES = [
@@ -116,6 +130,10 @@ export interface JobMatchResult {
   missingKeywords: string[];
   matchedSkills: string[];
   gapSkills: string[];
+  /** Score hybride actif et embedding sémantique utilisé */
+  semanticEnhanced?: boolean;
+  /** Similarité cosinus 0–1 (mode sémantique uniquement) */
+  semanticSimilarity?: number;
 }
 
 export interface SectionConfig {
@@ -161,6 +179,7 @@ export interface ResumeSummary {
   name: string;
   target_role: string;
   is_base_resume: boolean;
+  has_cover_letter?: boolean;
   created_at: string;
   updated_at: string;
 }

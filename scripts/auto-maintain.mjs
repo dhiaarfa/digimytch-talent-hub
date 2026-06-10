@@ -73,3 +73,8 @@ for (const [dir, limitMb] of Object.entries(THRESHOLDS_MB)) {
 if (!freed) {
   console.log("✅ Cache build OK — pas de nettoyage nécessaire");
 }
+
+spawnSync(process.execPath, [resolve(__dirname, "copy-pdf-worker.mjs")], {
+  stdio: "inherit",
+  cwd: root,
+});

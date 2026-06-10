@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { computeResumeJobMatch } from "./matching";
+import { blendHybridScore, computeResumeJobMatch } from "./matching";
 import { formatResumeDate } from "./utils";
 import type { Job, Resume } from "./types";
 
@@ -120,6 +120,38 @@ describe("computeResumeJobMatch", () => {
     };
     const m = computeResumeJobMatch(reactResume, reactJob);
     assert.ok(m.score > 70);
+  });
+
+  it("does not throw when resume text contains phone country codes", () => {
+    const resumeWithPhone: Resume = {
+      ...baseResume,
+      phone_number: "+216 53 580 272",
+      work_experience: [
+        {
+          company: "Co",
+          position: "Engineer",
+          date: "2022",
+          description: ["Reach me at +216 53 580 272", "5 ans Python"],
+          technologies: ["python"],
+        },
+      ],
+    };
+    assert.doesNotThrow(() => computeResumeJobMatch(resumeWithPhone, job));
+    const m = computeResumeJobMatch(resumeWithPhone, job);
+    assert.ok(m.score >= 0 && m.score <= 100);
+  });
+});
+
+describe("blendHybridScore", () => {
+  it("weights semantic 60% and deterministic 40%", () => {
+    assert.equal(blendHybridScore(1, 100), 100);
+    assert.equal(blendHybridScore(0, 100), 40);
+    assert.equal(blendHybridScore(0.5, 50), Math.round((0.5 * 0.6 + 0.5 * 0.4) * 100));
+  });
+
+  it("clamps inputs to valid ranges", () => {
+    assert.equal(blendHybridScore(2, 150), 100);
+    assert.equal(blendHybridScore(-1, -10), 0);
   });
 });
 

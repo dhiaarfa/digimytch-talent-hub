@@ -1,23 +1,26 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  closestCorners,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { Bookmark, Send, Calendar, CheckCircle, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { addNotification } from "@/components/ui/notification-center";
-import type { JobApplicationWithJob } from "@/lib/types";
+import type { ApplicationStatus, JobApplicationWithJob } from "@/lib/types";
 import { KANBAN_COLUMNS } from "@/lib/digimytch-tunisia";
 import { updateJobApplicationStatus } from "@/utils/actions/applications/actions";
 import { formatResumeDate } from "@/lib/utils";
@@ -38,6 +41,39 @@ const COLUMN_ICONS = {
   interview: Calendar,
   accepted: CheckCircle,
 } as const;
+
+type KanbanStatus = (typeof KANBAN_COLUMNS)[number]["id"];
+
+const KANBAN_STATUS_IDS = new Set<string>(KANBAN_COLUMNS.map((c) => c.id));
+
+function isKanbanStatus(status: string): status is KanbanStatus {
+  return KANBAN_STATUS_IDS.has(status);
+}
+
+function columnDroppableId(status: string) {
+  return `column:${status}`;
+}
+
+function resolveDropStatus(
+  overId: UniqueIdentifier,
+  rows: JobApplicationWithJob[]
+): KanbanStatus | null {
+  const id = String(overId);
+  if (isKanbanStatus(id)) {
+    return id;
+  }
+  if (id.startsWith("column:")) {
+    const status = id.slice("column:".length);
+    if (isKanbanStatus(status)) {
+      return status;
+    }
+  }
+  const overApp = rows.find((r) => r.id === id);
+  if (overApp && isKanbanStatus(overApp.status)) {
+    return overApp.status;
+  }
+  return null;
+}
 
 function CompanyInitials({ title, company }: { title: string; company: string }) {
   const source = (company?.trim() || title?.trim() || "?").split(/\s+/);
@@ -78,7 +114,7 @@ function KanbanCard({
         {onReject && app.status !== "rejected" && (
           <button
             type="button"
-            className="text-red-600 hover:underline text-[10px]"
+            className="text-red-600 hover:underline text-xs"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -122,6 +158,7 @@ function DroppableColumn({
   icon: Icon,
   apps,
   onRejectApp,
+  isDropTarget,
 }: {
   id: string;
   label: string;
@@ -129,13 +166,16 @@ function DroppableColumn({
   icon: typeof Bookmark;
   apps: JobApplicationWithJob[];
   onRejectApp: (appId: string) => void;
+  isDropTarget?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({
+    id: columnDroppableId(id),
+    data: { type: "column", status: id },
+  });
 
   return (
     <div
-      ref={setNodeRef}
-      className={`flex flex-col min-w-[260px] flex-1 rounded-xl border border-[var(--digi-border)] bg-[var(--digi-surface)] ${isOver ? "ring-2 ring-[var(--digi-accent)]" : ""}`}
+      className={`flex flex-col min-w-[260px] flex-1 rounded-xl border border-[var(--digi-border)] bg-[var(--digi-surface)] ${isDropTarget || isOver ? "ring-2 ring-[var(--digi-accent)]" : ""}`}
     >
       <header
         className="flex items-center gap-2 px-3 py-3 border-b border-[var(--digi-border)] rounded-t-xl"
@@ -147,7 +187,7 @@ function DroppableColumn({
           {apps.length}
         </span>
       </header>
-      <div className="p-2 space-y-2 flex-1 min-h-[120px]">
+      <div ref={setNodeRef} className="p-2 space-y-2 flex-1 min-h-[160px]">
         {apps.length === 0 ? (
           <div className="border-2 border-dashed border-[var(--digi-border)] rounded-lg p-4 text-center">
             <Icon className="h-6 w-6 mx-auto mb-2 opacity-30" style={{ color }} aria-hidden />
@@ -214,6 +254,7 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [overStatus, setOverStatus] = useState<ApplicationStatus | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [interviewModal, setInterviewModal] = useState<{ open: boolean; company: string }>({
     open: false,
@@ -221,7 +262,19 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
   });
   const [, startTransition] = useTransition();
 
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const status = event.over ? resolveDropStatus(event.over.id, rows) : null;
+      setOverStatus(status);
+    },
+    [rows]
+  );
 
   const visible = useMemo(
     () => rows.filter((r) => showArchived || r.status !== "rejected"),
@@ -246,16 +299,14 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveId(null);
+      setOverStatus(null);
       const { active, over } = event;
-      if (!over || active.id === over.id) return;
+      if (!over) return;
 
       const appId = String(active.id);
-      let newStatus = String(over.id);
-      if (!KANBAN_COLUMNS.some((c) => c.id === newStatus)) {
-        const overApp = rows.find((r) => r.id === newStatus);
-        if (!overApp) return;
-        newStatus = overApp.status;
-      }
+      const newStatus =
+        resolveDropStatus(over.id, rows) ?? overStatus;
+      if (!newStatus) return;
 
       const prev = rows.find((r) => r.id === appId);
       if (!prev || prev.status === newStatus) return;
@@ -293,7 +344,7 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
         }
       });
     },
-    [rows, router]
+    [rows, router, overStatus]
   );
 
   const handleReject = useCallback(
@@ -323,12 +374,38 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
 
   if (rows.length === 0) {
     return (
-      <EmptyState
-        icon={ClipboardList}
-        title="Aucune candidature suivie"
-        description="Commencez par analyser une offre, puis ajoutez-la à vos candidatures."
-        action={{ label: "Analyser une offre", href: "/jobs" }}
-      />
+      <div className="space-y-6">
+        <div className="flex gap-3 overflow-x-auto pb-2 opacity-60 pointer-events-none select-none" aria-hidden>
+          {KANBAN_COLUMNS.map((col) => {
+            const Icon = COLUMN_ICONS[col.id];
+            return (
+              <div
+                key={col.id}
+                className="min-w-[140px] flex-1 rounded-xl border border-dashed border-[var(--digi-border)] bg-white/50 p-3"
+              >
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Icon className="h-3.5 w-3.5 text-[var(--digi-muted)]" />
+                  <span className="text-[10px] font-semibold text-[var(--digi-muted)] truncate">
+                    {col.label}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-10 rounded-lg bg-[var(--digi-surface)] border border-[var(--digi-border)]" />
+                  {col.id === "saved" && (
+                    <div className="h-8 rounded-lg bg-[var(--digi-surface)]/60 border border-[var(--digi-border)]" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="Aucune candidature suivie"
+          description="Commencez par analyser une offre, puis ajoutez-la à vos candidatures."
+          action={{ label: "Analyser une offre", href: "/jobs" }}
+        />
+      </div>
     );
   }
 
@@ -347,7 +424,13 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
 
       <DndContext
         sensors={sensors}
+        collisionDetection={closestCorners}
         onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
+        onDragOver={handleDragOver}
+        onDragCancel={() => {
+          setActiveId(null);
+          setOverStatus(null);
+        }}
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto pb-4">
@@ -362,6 +445,7 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
                 icon={Icon}
                 apps={byColumn[col.id] ?? []}
                 onRejectApp={handleReject}
+                isDropTarget={overStatus === col.id}
               />
             );
           })}

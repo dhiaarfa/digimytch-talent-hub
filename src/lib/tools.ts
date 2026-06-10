@@ -75,6 +75,24 @@ export const suggestEducationTool = createTool({
   }),
 });
 
+export const getCoverLetterTool = createTool({
+  description:
+    "Read the current cover letter text and linked job context. Use before suggesting edits.",
+  parameters: z.object({}),
+});
+
+export const suggestCoverLetterTool = createTool({
+  description:
+    "Suggest an improved cover letter. Return full letter body as HTML paragraphs (<p>...</p>). Professional French. Keep facts from the original; do not invent employers or dates.",
+  parameters: z.object({
+    improved_content: z
+      .string()
+      .describe(
+        "Complete improved cover letter as HTML (paragraphs in <p> tags). Use <strong> for emphasis sparingly."
+      ),
+  }),
+});
+
 export const modifyWholeResumeTool = createTool({
   description: 'Modify multiple sections of the resume at once. For important keywords, format them as bold, like this: **keyword**. Put two asterisks around the keyword or phrase.',
   parameters: z.object({
@@ -125,12 +143,19 @@ export const modifyWholeResumeTool = createTool({
   
 
 // Export all tools in a single object for convenience
-export const tools = {
+export const resumeChatTools = {
   getResume: getResumeTool,
   suggest_work_experience_improvement: suggestWorkExperienceTool,
   suggest_project_improvement: suggestProjectTool,
   suggest_skill_improvement: suggestSkillTool,
   suggest_education_improvement: suggestEducationTool,
   modifyWholeResume: modifyWholeResumeTool,
+};
 
-}; 
+export const coverLetterChatTools = {
+  getCoverLetter: getCoverLetterTool,
+  suggest_cover_letter_improvement: suggestCoverLetterTool,
+};
+
+/** @deprecated Use resumeChatTools */
+export const tools = resumeChatTools; 

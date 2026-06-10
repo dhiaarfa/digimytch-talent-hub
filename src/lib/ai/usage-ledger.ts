@@ -1,6 +1,6 @@
 import type { LanguageModelUsage, LanguageModelV1 } from "ai";
 
-import { checkRateLimit, RateLimitError } from "@/lib/rateLimiter";
+import { checkRateLimit, RateLimitError, RateLimitBackendError } from "@/lib/rateLimiter";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { captureServerAnalyticsEvent } from "@/lib/analytics/server";
 import { getDefaultModel, getFastCheapFreeModel } from "@/lib/ai-models";
@@ -9,7 +9,8 @@ import {
   resolveAIRequest,
   type ResolvedAIRequest,
 } from "@/lib/ai/access-control";
-import { createCiMockModel, isCiMockAI } from "@/lib/ai/ci-mock-model";
+import { createCiMockModel, isCiMockAI, isLocalDevMockAI, getDevMockText } from "@/lib/ai/ci-mock-model";
+import { normalizeDigimytchOpenRouterModelId } from "@/lib/digimytch-openrouter-models";
 import { createAIClientFromResolvedRequest, type AIConfig } from "@/utils/ai-tools";
 import { createServiceClient } from "@/utils/supabase/server";
 
@@ -50,6 +51,10 @@ export async function recordAIUsageStarted(input: {
     .single();
 
   if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[AI ledger] insert skipped:", error.message);
+      return "dev-ledger-skip";
+    }
     throw error;
   }
 
@@ -91,6 +96,7 @@ export async function recordAIUsageFinished(input: {
     .single();
 
   if (error) {
+    if (process.env.NODE_ENV === "development") return;
     throw error;
   }
 
@@ -155,6 +161,7 @@ export async function finishAIUsageRequest(input: {
   usage?: LanguageModelUsage;
   errorCode?: string;
 }) {
+  if (input.usageEventId === "dev-mock" || input.usageEventId === "dev-ledger-skip") return;
   await recordAIUsageFinished({
     id: input.usageEventId,
     status: input.status,
@@ -175,6 +182,23 @@ export async function startAIUsageRequest(input: {
   resolved: ResolvedAIRequest;
 }> {
   let requestedModel = input.config?.model ?? getDefaultModel(input.isPro);
+  if (isDigimytchTalentHub()) {
+    requestedModel = normalizeDigimytchOpenRouterModelId(requestedModel);
+  }
+
+  if (isLocalDevMockAI()) {
+    return {
+      model: createCiMockModel(getDevMockText(input.route)),
+      usageEventId: "dev-mock",
+      resolved: {
+        providerId: "openrouter",
+        modelId: "dev-mock",
+        apiKey: "",
+        usedServerKey: true,
+        requiresRateLimit: false,
+      },
+    };
+  }
 
   let resolved: ResolvedAIRequest | undefined;
 
@@ -236,6 +260,18 @@ export async function startAIUsageRequest(input: {
   try {
     await checkRateLimit(input.userId, input.route);
   } catch (error) {
+    if (error instanceof RateLimitBackendError) {
+      await recordAIUsageFinished({
+        id: usageEventId,
+        status: "failed",
+        errorCode: "rate_limit_backend_unavailable",
+      });
+      throw new AIUsageError(
+        "Service temporairement indisponible. Réessayez dans un instant.",
+        "failed",
+        503
+      );
+    }
     const retryAfter =
       error instanceof RateLimitError ? error.retryAfterSeconds : 60;
     await recordAIUsageFinished({

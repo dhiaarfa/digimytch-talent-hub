@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getOpenRouterApiKey, OPENROUTER_KEY_SETUP_HINT } from "@/lib/openrouter-config";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -17,15 +18,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "OPENROUTER_API_KEY manquante. Créez une clé sur https://openrouter.ai/keys et ajoutez-la dans .env",
-      },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: OPENROUTER_KEY_SETUP_HINT }, { status: 503 });
   }
 
   const formData = await req.formData();

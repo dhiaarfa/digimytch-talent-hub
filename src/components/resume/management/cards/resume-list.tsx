@@ -52,7 +52,7 @@ export function ResumeList({
               <div className="text-[12px] font-medium text-gray-800">
                 {type === 'base' ? resume.target_role : resume.name}
               </div>
-              <div className="text-[10px] text-muted-foreground truncate mb-1 flex items-center gap-0.5">
+              <div className="text-xs text-muted-foreground truncate mb-1 flex items-center gap-0.5">
                 <span className={`text-${accentColor.text} font-bold`}>
                   {type === 'base' ? 'CV de base' : 'CV sur mesure'}
                 </span>
@@ -95,7 +95,7 @@ export function ResumeList({
 
             {/* Date at bottom left */}
             <div className="absolute bottom-0 left-0 p-0.5">
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Updated {format(new Date(resume.updated_at), 'MMM d, yyyy')}
               </p>
             </div>

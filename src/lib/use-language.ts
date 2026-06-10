@@ -27,6 +27,7 @@ function readLang(): DigiLang {
 export function setDigiLang(lang: DigiLang) {
   if (typeof window === 'undefined') return
   localStorage.setItem(LANG_STORAGE_KEY, lang)
+  document.cookie = `digi-lang=${lang};path=/;max-age=31536000;SameSite=Lax`
   emitLangChange()
 }
 

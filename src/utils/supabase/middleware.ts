@@ -1,8 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSubscriptionAccessState } from '@/lib/subscription-access'
-import { isDigimytchTalentHub } from '@/lib/digimytch-config'
-import { getAuthUserWithTimeout, isPublicAppRoute } from '@/lib/supabase-resilience'
+import { isAdminUser, isDigimytchTalentHub } from '@/lib/digimytch-config'
+import { isAdminRoute, isCandidateRoute } from '@/lib/admin-routes'
+import {
+  getAuthTimeoutForRequest,
+  getAuthUserWithTimeout,
+  hasSupabaseAuthCookieFromRequest,
+  isDataPassthroughRequest,
+  isPublicAppRoute,
+} from '@/lib/supabase-resilience'
+import { getSupabaseUrl } from '@/lib/supabase-url'
 
 const DEBUG = process.env.DEBUG_MIDDLEWARE === '1'
 
@@ -15,7 +23,9 @@ const SUBSCRIPTION_EXEMPT_ROUTES = [
   '/formations',
   '/candidatures',
   '/entretiens',
+  '/linkedin',
   '/settings',
+  '/admin',
   '/subscription',
   '/start-trial',
   '/subscription/checkout',
@@ -31,13 +41,15 @@ function isSubscriptionExemptRoute(pathname: string): boolean {
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const digimytch = isDigimytchTalentHub()
+  const isPassthrough = isDataPassthroughRequest(request)
+  const hasAuthCookie = hasSupabaseAuthCookieFromRequest(request)
 
   let supabaseResponse = NextResponse.next({
     request,
   })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    getSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
@@ -57,12 +69,37 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const { user, unavailable: supabaseUnavailable } = await getAuthUserWithTimeout(() =>
-    supabase.auth.getUser()
-  )
+  const useFastSessionAuth = digimytch || isPassthrough;
 
-  if (supabaseUnavailable && isPublicAppRoute(pathname)) {
-    if (DEBUG) console.warn('Supabase unreachable — public route:', pathname)
+  const { user, unavailable } = useFastSessionAuth
+    ? await (async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        return { user: session?.user ?? null, unavailable: false };
+      })()
+    : await getAuthUserWithTimeout(
+        () => supabase.auth.getUser(),
+        getAuthTimeoutForRequest(request)
+      );
+
+  // Connecté : redirection immédiate / → /home ou /admin (sans charger la landing)
+  if (pathname === '/') {
+    if (user) {
+      const url = request.nextUrl.clone()
+      url.pathname = digimytch && isAdminUser(user) ? '/admin' : '/home'
+      return NextResponse.redirect(url)
+    }
+    if (hasAuthCookie && unavailable) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/home'
+      url.searchParams.set('offline', '1')
+      return NextResponse.redirect(url)
+    }
+  }
+
+  if (unavailable && (isPublicAppRoute(pathname) || hasAuthCookie)) {
+    if (DEBUG) console.warn('Supabase unreachable — allowing request:', pathname)
     supabaseResponse.headers.set('x-supabase-status', 'unavailable')
     return supabaseResponse
   }
@@ -78,8 +115,25 @@ export async function updateSession(request: NextRequest) {
 
   supabaseResponse.cookies.set('show-banner', 'false')
 
+  // Server Actions / RSC / HMR flight: never redirect to HTML (causes "Failed to fetch").
+  if (isPassthrough) {
+    if (unavailable) {
+      supabaseResponse.headers.set('x-supabase-status', 'unavailable')
+    }
+    if (!user && !hasAuthCookie && !isPublicAppRoute(pathname)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
+  }
+
   if (!user) {
     if (isPublicAppRoute(pathname)) {
+      return supabaseResponse
+    }
+    if (unavailable && hasAuthCookie) {
+      supabaseResponse.headers.set('x-supabase-status', 'unavailable')
       return supabaseResponse
     }
     const url = request.nextUrl.clone()
@@ -88,7 +142,19 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (digimytch) {
-    return supabaseResponse
+    const admin = isAdminUser(user);
+    if (admin) {
+      if (isCandidateRoute(pathname)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin";
+        return NextResponse.redirect(url);
+      }
+    } else if (isAdminRoute(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/home";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
   }
 
   if (!isSubscriptionExemptRoute(pathname)) {

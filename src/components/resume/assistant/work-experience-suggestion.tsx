@@ -90,7 +90,7 @@ export function WorkExperienceSuggestion({
             </p>
           </div>
           <span className={cn(
-            "text-[10px] text-gray-600",
+            "text-xs text-gray-600",
             getHighlightClass(currentWork.date, suggestedWork.date, suggestedWork.date)
           )}>
             {suggestedWork.date}

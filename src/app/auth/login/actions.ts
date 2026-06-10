@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import { isAdminUser } from "@/lib/digimytch-config";
 import { getAuthenticatedClient, getServiceClient } from "@/utils/actions/utils/supabase";
 import { deleteCustomerAndData } from "@/utils/actions/stripe/actions";
 import { loginSchema, signupSchema } from "@/lib/auth-schemas";
@@ -51,9 +52,10 @@ export async function login(formData: FormData): Promise<AuthResult> {
   }
 
   const { syncProfileToAuthSession } = await import('@/utils/actions/profile/sync-profile')
-  await syncProfileToAuthSession().catch(() => {})
+  void syncProfileToAuthSession().catch(() => {})
 
-  redirect('/home')
+  const { data: { user } } = await supabase.auth.getUser()
+  redirect(isAdminUser(user) ? '/admin' : '/home')
   return { success: true }
 }
 
@@ -173,11 +175,15 @@ export async function signupWithState(
   };
 }
 
-// Logout 
+// Logout
 export async function logout() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect('/');
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    /* API down — redirect still clears session via route handler */
+  }
+  redirect("/");
 } 
 
 // Password Reset

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,8 +16,13 @@ export function TrackApplicationButton({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [tracked, setTracked] = useState(alreadyTracked);
 
-  if (alreadyTracked) {
+  useEffect(() => {
+    setTracked(alreadyTracked);
+  }, [alreadyTracked]);
+
+  if (tracked) {
     return (
       <Button asChild type="button" size="sm" variant="outline">
         <a href="/candidatures">Voir dans Mes candidatures →</a>
@@ -35,6 +40,7 @@ export function TrackApplicationButton({
         startTransition(async () => {
           try {
             await upsertJobApplication({ jobId, status: "saved" });
+            setTracked(true);
             toast.success("Offre ajoutée — retrouvez-la dans la colonne « À traiter »");
             router.refresh();
           } catch (e) {

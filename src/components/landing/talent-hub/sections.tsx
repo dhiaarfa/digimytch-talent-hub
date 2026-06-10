@@ -8,8 +8,11 @@ import {
   UserPlus,
   FileText,
   Target,
+  Mail,
   ClipboardList,
   BookOpen,
+  Linkedin,
+  Mic,
   ArrowRight,
 } from "lucide-react";
 import { AuthDialog } from "@/components/auth/auth-dialog";
@@ -23,8 +26,8 @@ import {
 import { scoreColor } from "@/lib/score-theme";
 import { PFE_AUTHOR, PFE_TAGLINE } from "@/lib/digimytch-branding";
 
-const STEP_ICONS = [UserPlus, FileText, Target, ClipboardList] as const;
-const FEATURE_ICONS = [FileText, Target, BookOpen, ClipboardList] as const;
+const STEP_ICONS = [UserPlus, FileText, Target, Mail, ClipboardList] as const;
+const FEATURE_ICONS = [FileText, Target, Mail, Linkedin, BookOpen, Mic] as const;
 
 export function HowItWorks() {
   const { lang } = useLanguage();
@@ -36,7 +39,7 @@ export function HowItWorks() {
           {t.howTitle}
         </h2>
         <p className="text-center text-[var(--digi-muted)] mt-3">{t.howSub}</p>
-        <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
+        <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-5 gap-8 relative">
           {t.steps.map(({ n, title, desc }, i) => {
             const Icon = STEP_ICONS[i] ?? UserPlus;
             return (
@@ -72,7 +75,7 @@ export function FeaturesGrid() {
         <h2 className="font-display text-3xl font-bold text-center text-[var(--digi-dark)]">
           {t.featuresTitle}
         </h2>
-        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {t.features.map(({ title, desc }, i) => {
             const Icon = FEATURE_ICONS[i] ?? FileText;
             return (
@@ -93,6 +96,8 @@ export function FeaturesGrid() {
 }
 
 export function ScoreBridgePreview() {
+  const { lang } = useLanguage();
+  const t = landingCopy(lang);
   const [score, setScore] = useState(0);
   const target = 72;
 
@@ -116,15 +121,13 @@ export function ScoreBridgePreview() {
     <section className="digimytch-landing-light py-20 bg-[var(--digi-surface)]">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center text-[var(--digi-dark)]">
-          Comprenez exactement pourquoi vous matchez — ou non.
+          {t.scoreTitle}
         </h2>
-        <p className="text-center text-[var(--digi-muted)] mt-3 text-sm">
-          Notre algorithme décompose chaque offre et compare avec votre profil.
-        </p>
+        <p className="text-center text-[var(--digi-muted)] mt-3 text-sm">{t.scoreSub}</p>
         <div className="mt-10 rounded-xl border border-[var(--digi-border)] bg-white shadow-[var(--digi-card-shadow)] overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--digi-border)] bg-white">
             <span className="text-xs font-semibold tracking-wide text-[var(--digi-muted)] uppercase">
-              Compatibilité avec l&apos;offre
+              {t.scoreCompatLabel}
             </span>
             <span className="font-display font-bold text-2xl" style={{ color: scoreColor(score) }}>
               {score} / 100
@@ -132,7 +135,7 @@ export function ScoreBridgePreview() {
           </div>
           <div className="p-5 space-y-4 text-sm">
             <div>
-              <p className="font-medium text-[var(--digi-dark)] mb-2">Compétences reconnues</p>
+              <p className="font-medium text-[var(--digi-dark)] mb-2">{t.scoreMatched}</p>
               <div className="flex flex-wrap gap-2">
                 {matched.map((s, i) => (
                   <span
@@ -146,7 +149,7 @@ export function ScoreBridgePreview() {
               </div>
             </div>
             <div>
-              <p className="font-medium text-[var(--digi-dark)] mb-2">Compétences manquantes</p>
+              <p className="font-medium text-[var(--digi-dark)] mb-2">{t.scoreMissing}</p>
               <div className="flex flex-wrap gap-2">
                 {missing.map((s, i) => (
                   <span
@@ -162,16 +165,16 @@ export function ScoreBridgePreview() {
               Langues : Français ✓ · English B2 requis ⚠
             </p>
             <p className="text-sm bg-[var(--digi-surface)] rounded-lg p-3 border border-[var(--digi-border)]">
-              💡 Il vous manque Docker.{" "}
+              {t.scoreTip}
               <Link href="#features" className="text-[var(--digi-accent)] font-medium hover:underline">
-                Voir la formation →
+                {t.scoreTipLink}
               </Link>
             </p>
           </div>
           <div className="px-5 pb-5">
             <AuthDialog defaultTab="signup">
               <Button className="w-full bg-[var(--digi-accent)] hover:opacity-90 text-white gap-2">
-                Essayer avec mon profil
+                {t.scoreCta}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </AuthDialog>
@@ -182,36 +185,32 @@ export function ScoreBridgePreview() {
   );
 }
 
-const TESTIMONIALS = [
-  { initials: "A.K.", name: "Aziz K.", role: "Développeur Full Stack — Tunis", quote: "J'ai utilisé Digimytch pour analyser 8 offres en une semaine. Le score de matching m'a fait réaliser que je manquais de Docker. J'ai suivi la formation recommandée et décroché l'entretien.", bg: "var(--digi-navy)" },
-  { initials: "M.B.", name: "Mariem B.", role: "Chef de projet — Sfax", quote: "L'assistant IA m'a aidé à reformuler mes expériences de manière beaucoup plus percutante. Mon CV n'a plus rien à voir avec avant.", bg: "var(--digi-accent)" },
-  { initials: "S.R.", name: "Sami R.", role: "Étudiant ENSI — Cherche alternance", quote: "Le suivi des candidatures est exactement ce qu'il me fallait. Plus de tableur Excel. Je vois tout en un coup d'œil.", bg: "var(--digi-orange)" },
-];
-
 export function TestimonialsSection() {
+  const { lang } = useLanguage();
+  const t = landingCopy(lang);
   return (
     <section className="py-20 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center text-[var(--digi-dark)]">
-          Ils structurent leur recherche avec Digimytch
+          {t.testimonialsTitle}
         </h2>
         <div className="mt-12 grid md:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((t) => (
+          {t.testimonials.map((item) => (
             <blockquote
-              key={t.initials}
+              key={item.initials}
               className="rounded-xl border border-[var(--digi-border)] p-6 bg-[var(--digi-surface)]"
             >
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold mb-4"
-                style={{ background: t.bg }}
+                style={{ background: item.bg }}
               >
-                {t.initials}
+                {item.initials}
               </div>
               <p className="text-amber-500 text-sm mb-2" aria-label="5 étoiles">★★★★★</p>
-              <p className="text-sm text-[var(--digi-muted)] leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
+              <p className="text-sm text-[var(--digi-muted)] leading-relaxed">&ldquo;{item.quote}&rdquo;</p>
               <footer className="mt-4">
-                <p className="font-semibold text-sm text-[var(--digi-dark)]">{t.name}</p>
-                <p className="text-xs text-[var(--digi-muted)]">{t.role}</p>
+                <p className="font-semibold text-sm text-[var(--digi-dark)]">{item.name}</p>
+                <p className="text-xs text-[var(--digi-muted)]">{item.role}</p>
               </footer>
             </blockquote>
           ))}
@@ -221,28 +220,17 @@ export function TestimonialsSection() {
   );
 }
 
-const FAQ_ITEMS = [
-  { q: "Comment fonctionne le score de matching ?", a: "Le score (0 à 100) compare votre CV de référence aux mots-clés, au titre du poste et aux compétences attendues pour chaque offre." },
-  { q: "Les formations viennent-elles d'Internet ?", a: "Non. Le catalogue est géré par Digimytch en base de données et aligné sur vos écarts de compétences." },
-  { q: "Puis-je suivre mes candidatures ?", a: "Oui. Tableau Kanban avec statuts, historique et notes pour chaque démarche." },
-  { q: "L'assistant IA rédige-t-il en français ?", a: "Oui. Reformulations professionnelles en français, avec vos propres clés API si vous le souhaitez." },
-  { q: "Mes données sont-elles protégées ?", a: "Vos données sont hébergées de manière sécurisée. Vous contrôlez ce que vous partagez dans votre profil." },
-  { q: "Est-ce gratuit ?", a: "100 % gratuit pour les candidats. Sans carte bancaire ni abonnement." },
-  { q: "Puis-je analyser des offres Rekrute ou LinkedIn ?", a: "Collez le texte de l'offre depuis LinkedIn, Indeed ou Rekrute pour obtenir votre score." },
-  { q: "Qu'est-ce que le CIVP ?", a: "Le CIVP est un contrat d'initiation à la vie professionnelle courant en Tunisie — vous pouvez le renseigner dans vos candidatures." },
-  { q: "Faut-il un CV de base ?", a: "Oui, le matching utilise votre CV de référence (CV de base) le plus récent." },
-  { q: "Comment contacter Digimytch ?", a: "Via le site digimytch.com pour le partenariat institutionnel et le support projet." },
-];
-
 export function FAQSection() {
+  const { lang } = useLanguage();
+  const t = landingCopy(lang);
   return (
     <section id="faq" className="digimytch-landing-light py-20 bg-[var(--digi-surface)]">
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center text-[var(--digi-dark)] mb-8">
-          Questions fréquentes
+          {t.faqTitle}
         </h2>
         <Accordion type="single" collapsible className="space-y-2">
-          {FAQ_ITEMS.map((item, i) => (
+          {t.faqItems.map((item, i) => (
             <AccordionItem key={i} value={`faq-${i}`} className="bg-white border border-[var(--digi-border)] rounded-lg px-4">
               <AccordionTrigger className="text-left font-medium text-[var(--digi-dark)] hover:no-underline">
                 {item.q}
@@ -257,23 +245,24 @@ export function FAQSection() {
 }
 
 export function CTABanner() {
+  const { lang } = useLanguage();
+  const t = landingCopy(lang);
+
   return (
     <section className="py-20 bg-[var(--digi-navy)] text-white text-center">
       <div className="max-w-2xl mx-auto px-4">
-        <h2 className="font-display text-3xl sm:text-4xl font-bold">Explorez le prototype</h2>
-        <p className="mt-4 text-white/80">
-          Créez un compte de test pour parcourir le flux CV, matching, formations et candidatures.
-        </p>
+        <h2 className="font-display text-3xl sm:text-4xl font-bold">{t.ctaFinalTitle}</h2>
+        <p className="mt-4 text-white/80">{t.ctaFinalDesc}</p>
         <div className="mt-8">
           <AuthDialog defaultTab="signup">
             <Button size="lg" className="btn-digi-primary gap-2">
-              Accéder à la démo
+              {t.ctaFinalBtn}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </AuthDialog>
         </div>
         <p className="mt-4 text-sm text-white/70">
-          {PFE_TAGLINE} — usage académique uniquement
+          {PFE_TAGLINE} — {t.ctaFinalNote}
         </p>
       </div>
     </section>

@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { X, Send, Sparkles, Minimize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
-import {
-  DIGIMYTCH_AI_MODEL_STORAGE_KEY,
-  selectBestModelForTask,
-} from "@/lib/ai-models";
+import { withBasePath } from "@/lib/utils";
+import { normalizeDigimytchOpenRouterModelId } from "@/lib/digimytch-openrouter-models";
+
+const DIGIMYTCH_AI_MODEL_STORAGE_KEY = "digi-ai-model";
+const DEFAULT_CHAT_MODEL = "openrouter/free";
 
 type Message = {
   role: "user" | "assistant";
@@ -22,12 +23,13 @@ Tu peux guider l'utilisateur, répondre à ses questions, et suggérer des actio
   if (!isLoggedIn) {
     return `${base}
 L'utilisateur n'est pas connecté. Tu peux expliquer les fonctionnalités : CV intelligent IA, matching emploi-profil, formations recommandées, simulateur d'entretien.
-Encourage-le à créer un compte gratuit via « Accéder à la démo ».`;
+Encourage-le à créer un compte gratuit via « Connexion » ou « Créer un compte ».`;
   }
 
   const contextByPage: Record<string, string> = {
     "/home": "L'utilisateur est sur le tableau de bord principal.",
     "/resumes": "L'utilisateur gère ses CV. Tu peux l'aider à créer, améliorer ou expliquer les sections.",
+    "/score-cv": "L'utilisateur analyse le score d'un CV (importé ou existant) hors éditeur.",
     "/jobs": "L'utilisateur analyse des offres d'emploi. Tu peux expliquer les scores et les compétences manquantes.",
     "/formations": "L'utilisateur consulte le catalogue de formations recommandées.",
     "/candidatures": "L'utilisateur suit ses candidatures en Kanban.",
@@ -43,11 +45,9 @@ Encourage-le à créer un compte gratuit via « Accéder à la démo ».`;
 }
 
 function readChatModel(): string {
-  if (typeof window === "undefined") return selectBestModelForTask("chat");
-  return (
-    localStorage.getItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY) ||
-    selectBestModelForTask("chat")
-  );
+  if (typeof window === "undefined") return DEFAULT_CHAT_MODEL;
+  const stored = localStorage.getItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY);
+  return normalizeDigimytchOpenRouterModelId(stored || DEFAULT_CHAT_MODEL);
 }
 
 export function GlobalAssistant({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
@@ -80,8 +80,9 @@ export function GlobalAssistant({ isLoggedIn = false }: { isLoggedIn?: boolean }
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/assistant", {
+      const response = await fetch(withBasePath("/api/assistant"), {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: history,

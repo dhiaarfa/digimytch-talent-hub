@@ -489,8 +489,8 @@ export function DocumentSettingsForm({ documentSettings, onChange }: DocumentSet
                     }
                   />
                   <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-muted-foreground/40">Narrow</span>
-                    <span className="text-[10px] text-muted-foreground/40">Full Width</span>
+                    <span className="text-xs text-muted-foreground/40">Narrow</span>
+                    <span className="text-xs text-muted-foreground/40">Full Width</span>
                   </div>
                 </div>
               )}
@@ -708,8 +708,8 @@ export function DocumentSettingsForm({ documentSettings, onChange }: DocumentSet
                   }
                 />
                 <div className="flex justify-between mt-1">
-                  <span className="text-[10px] text-muted-foreground/40">{lbl("Compact", "Compact")}</span>
-                  <span className="text-[10px] text-muted-foreground/40">{lbl("Spacious", "Aéré")}</span>
+                  <span className="text-xs text-muted-foreground/40">{lbl("Compact", "Compact")}</span>
+                  <span className="text-xs text-muted-foreground/40">{lbl("Spacious", "Aéré")}</span>
                 </div>
               </div>
             </div>

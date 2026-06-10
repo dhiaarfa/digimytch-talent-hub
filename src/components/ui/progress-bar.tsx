@@ -9,18 +9,33 @@ export function TopProgressBar() {
   const pathname = usePathname();
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setProgress(30);
-    const t1 = setTimeout(() => setProgress(70), 100);
-    const t2 = setTimeout(() => setProgress(100), 300);
+    const t1 = setTimeout(() => {
+      if (!cancelled) setProgress(70);
+    }, 100);
+    const t2 = setTimeout(() => {
+      if (!cancelled) setProgress(100);
+    }, 300);
     const t3 = setTimeout(() => {
-      setLoading(false);
-      setProgress(0);
+      if (!cancelled) {
+        setLoading(false);
+        setProgress(0);
+      }
     }, 600);
+    const safety = setTimeout(() => {
+      if (!cancelled) {
+        setLoading(false);
+        setProgress(0);
+      }
+    }, 4_000);
     return () => {
+      cancelled = true;
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(safety);
     };
   }, [pathname]);
 

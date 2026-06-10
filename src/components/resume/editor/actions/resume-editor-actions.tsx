@@ -23,7 +23,7 @@ interface ResumeEditorActionsProps {
 export function ResumeEditorActions({
   onResumeChange
 }: ResumeEditorActionsProps) {
-  const { state, dispatch } = useResumeContext();
+  const { state, dispatch, markAsSaved } = useResumeContext();
   const { resume, isSaving } = state;
   const [downloadOptions, setDownloadOptions] = useState({
     resume: true,
@@ -36,6 +36,7 @@ export function ResumeEditorActions({
     try {
       dispatch({ type: 'SET_SAVING', value: true });
       await updateResume(state.resume.id, state.resume);
+      markAsSaved();
       toast({
         title: tResume("Changes saved", "Modifications enregistrées"),
         description: L.successSaved,

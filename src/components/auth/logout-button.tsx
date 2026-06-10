@@ -3,11 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useState } from "react";
-import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useResumeLabels } from "@/lib/resume-labels";
-import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
+import { resetBrowserClient } from "@/utils/supabase/client";
+import { clearBrowserSupabaseSession } from "@/lib/supabase-browser-session";
 import {
   Tooltip,
   TooltipContent,
@@ -19,29 +18,19 @@ interface LogoutButtonProps {
   className?: string;
   /** Sidebar étroite : icône seule + infobulle */
   iconOnly?: boolean;
+  /** Libellé personnalisé (ex. menu sidebar Digimytch) */
+  label?: string;
 }
 
-export function LogoutButton({ className, iconOnly = false }: LogoutButtonProps) {
+export function LogoutButton({ className, iconOnly = false, label }: LogoutButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const L = useResumeLabels();
-  const router = useRouter();
 
-  const handleLogout = async () => {
-    try {
-      setIsLoading(true);
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      router.push("/");
-      router.refresh();
-    } catch {
-      toast({
-        title: L.errorSigningOut,
-        description: L.tryAgain,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const handleLogout = () => {
+    setIsLoading(true);
+    clearBrowserSupabaseSession();
+    resetBrowserClient();
+    window.location.assign("/auth/signout");
   };
 
   const button = (
@@ -61,7 +50,7 @@ export function LogoutButton({ className, iconOnly = false }: LogoutButtonProps)
     >
       <LogOut className={cn("shrink-0", iconOnly ? "h-4 w-4" : "h-3.5 w-3.5", isLoading && "animate-spin")} />
       {!iconOnly && (
-        <span className="truncate">{isLoading ? L.signingOut : L.logout}</span>
+        <span className="truncate">{isLoading ? L.signingOut : (label ?? L.logout)}</span>
       )}
     </Button>
   );
@@ -80,4 +69,4 @@ export function LogoutButton({ className, iconOnly = false }: LogoutButtonProps)
   }
 
   return button;
-} 
+}

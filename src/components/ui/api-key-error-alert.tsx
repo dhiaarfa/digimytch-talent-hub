@@ -1,8 +1,11 @@
+import { logger } from '@/lib/logger';
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProUpgradeButton } from "@/components/settings/pro-upgrade-button";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { OPENROUTER_KEY_SETUP_HINT } from "@/lib/openrouter-config";
 
 interface ApiKeyErrorAlertProps {
   error: unknown;
@@ -12,32 +15,36 @@ interface ApiKeyErrorAlertProps {
 export function ApiKeyErrorAlert({ error, router }: ApiKeyErrorAlertProps) {
   // Detailed console debugging
   console.group('🔍 ApiKeyErrorAlert Debug');
-  console.log('Raw error:', error);
-  console.log('Error type:', typeof error);
-  console.log('Error constructor:', error?.constructor?.name);
+  logger.debug('Raw error:', error);
+  logger.debug('Error type:', typeof error);
+  logger.debug('Error constructor:', error?.constructor?.name);
   
   if (error instanceof Error) {
-    console.log('Error message:', error.message);
-    console.log('Error stack:', error.stack);
-    console.log('Error name:', error.name);
+    logger.debug('Error message:', error.message);
+    logger.debug('Error stack:', error.stack);
+    logger.debug('Error name:', error.name);
   }
   
   try {
-    console.log('Error stringified:', JSON.stringify(error, null, 2));
+    logger.debug('Error stringified:', JSON.stringify(error, null, 2));
   } catch (e) {
-    console.log('Error cannot be stringified:', e);
+    logger.debug('Error cannot be stringified:', e);
   }
   
   // Check specific conditions
   const errorString = typeof error === 'string' ? error : (error as Error)?.message || '';
   const errorJson = JSON.stringify(error);
+  const isDigimytch = isDigimytchTalentHub();
+  const isOpenRouterIssue =
+    /openrouter|api key not found|unauthorized/i.test(errorString) ||
+    /openrouter|api key not found/i.test(errorJson);
   
-  console.log('Error string for checking:', errorString);
-  console.log('Error JSON for checking:', errorJson);
-  console.log('Contains OpenAI API key not found:', errorString.includes('OpenAI API key not found') || errorJson.includes('OpenAI API key not found'));
-  console.log('Contains invalid x-api-key:', errorString.includes('invalid x-api-key') || errorJson.includes('authentication_error'));
-  console.log('Contains Incorrect API key:', errorString.includes('Incorrect API key provided') || errorJson.includes('invalid_api_key'));
-  console.log('Contains Rate limit:', errorString.includes('Rate limit exceeded') || errorJson.includes('Rate limit exceeded'));
+  logger.debug('Error string for checking:', errorString);
+  logger.debug('Error JSON for checking:', errorJson);
+  logger.debug('Contains OpenAI API key not found:', errorString.includes('OpenAI API key not found') || errorJson.includes('OpenAI API key not found'));
+  logger.debug('Contains invalid x-api-key:', errorString.includes('invalid x-api-key') || errorJson.includes('authentication_error'));
+  logger.debug('Contains Incorrect API key:', errorString.includes('Incorrect API key provided') || errorJson.includes('invalid_api_key'));
+  logger.debug('Contains Rate limit:', errorString.includes('Rate limit exceeded') || errorJson.includes('Rate limit exceeded'));
   console.groupEnd();
 
   return (
@@ -60,7 +67,9 @@ export function ApiKeyErrorAlert({ error, router }: ApiKeyErrorAlertProps) {
             <AlertTriangle className="w-6 h-6 text-red-500" />
           </div>
           <div className="font-medium text-red-600">
-            {typeof error === 'string' 
+            {isDigimytch && isOpenRouterIssue
+              ? OPENROUTER_KEY_SETUP_HINT
+              : typeof error === 'string' 
               ? error
               : ((error as Error)?.name === 'DataCloneError' || 
                   (error as Error)?.message?.includes('structuredClone') ||
@@ -75,7 +84,10 @@ export function ApiKeyErrorAlert({ error, router }: ApiKeyErrorAlertProps) {
                           : ((error as Error)?.message?.includes('Incorrect API key provided') ||
                               JSON.stringify(error).includes('invalid_api_key'))
                               ? "Your OpenAI API key is invalid. Upgrade to Pro or try updating it in settings and try again."
-                              : ((error as Error)?.message?.includes('Rate limit exceeded') ||
+                              : ((error as Error)?.message?.includes('Unauthorized') ||
+                                  errorString.includes('Unauthorized'))
+                                  ? "Clé OpenRouter manquante ou invalide. Ajoutez OPENROUTER_API_KEY dans votre fichier .env local."
+                                  : ((error as Error)?.message?.includes('Rate limit exceeded') ||
                                   JSON.stringify(error).includes('Rate limit exceeded'))
                                   ? `You've exceeded the rate limit. Please try again after ${(() => {
                                       try {
@@ -102,7 +114,8 @@ export function ApiKeyErrorAlert({ error, router }: ApiKeyErrorAlertProps) {
           </div>
         </div>
 
-        {((error as Error)?.message?.includes('API key') || 
+        {!isDigimytch &&
+          ((error as Error)?.message?.includes('API key') || 
           JSON.stringify(error).includes('API key') || 
           JSON.stringify(error).includes('authentication_error')) &&
           !((error as Error)?.name === 'DataCloneError' || 

@@ -1,45 +1,13 @@
 'use server';
-import { generateObject, LanguageModelUsage, LanguageModelV1 } from 'ai';
+import { generateObject, LanguageModelV1 } from 'ai';
 import { z } from 'zod';
 import { RESUME_FORMATTER_SYSTEM_MESSAGE } from "@/lib/prompts";
 import { type AIConfig } from '@/utils/ai-tools';
-import { getSubscriptionPlan } from '@/utils/actions/stripe/actions';
+import { getAIPlanState, resolveTaskModel } from '@/lib/ai/plan';
 import { sanitizeUnknownStrings } from '@/lib/utils';
-import {
-  finishAIUsageRequest,
-  logPromptInjectionAttempt,
-  startAIUsageRequest,
-} from '@/lib/ai/usage-ledger';
+import { logPromptInjectionAttempt } from '@/lib/ai/usage-ledger';
+import { runTrackedAIRequest } from '@/lib/ai/run-tracked-request';
 import { sanitizeForPrompt } from '@/lib/prompt-security';
-
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-  },
-  task: (model: LanguageModelV1) => Promise<T>
-) {
-  const { model, usageEventId } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
 
 // TEXT RESUME -> PROFILE
 export async function formatProfileWithAI(
@@ -47,12 +15,15 @@ export async function formatProfileWithAI(
   config?: AIConfig
 ) {
     try {
-      const { plan, id } = await getSubscriptionPlan(true);
-      const isPro = plan === 'pro';
+      const { isPro, userId } = await getAIPlanState();
+      const resolvedConfig = {
+        model: resolveTaskModel('cv', isPro, config?.model),
+        apiKeys: config?.apiKeys ?? [],
+      };
       const sanitizedResumeText = sanitizeForPrompt(userMessages);
       if (sanitizedResumeText.detected || sanitizedResumeText.wasTrimmed) {
         await logPromptInjectionAttempt({
-          userId: id,
+          userId,
           route: "actions.profiles.formatProfileWithAI",
           details: `removed=${sanitizedResumeText.removedFragments},trimmed=${sanitizedResumeText.wasTrimmed}`,
         });
@@ -61,9 +32,9 @@ export async function formatProfileWithAI(
       
       const { object } = await runTrackedAIRequest({
         route: 'actions.profiles.formatProfileWithAI',
-        userId: id,
+        userId,
         isPro,
-        config,
+        config: resolvedConfig,
       }, (aiClient) => generateObject({
         model: aiClient as LanguageModelV1,
         schema: z.object({

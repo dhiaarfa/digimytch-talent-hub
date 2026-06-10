@@ -2,10 +2,27 @@
 
 import { Resume } from "@/lib/types";
 import { Logo } from "@/components/ui/logo";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useRouter } from "next/navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resumeLabels } from "@/lib/resume-labels";
+import { useUnsavedNavigationPrompt } from "@/contexts/unsaved-navigation-guard";
+import { useResumeContext } from "@/components/resume/editor/resume-editor-context";
+import { updateResume } from "@/utils/actions/resumes/actions";
+import { toast } from "@/hooks/use-toast";
+import { tResume } from "@/lib/resume-labels";
+import { useState } from "react";
 
 interface ResumeEditorHeaderProps {
   resume: Resume;
@@ -17,18 +34,40 @@ export function ResumeEditorHeader({
   hasUnsavedChanges,
 }: ResumeEditorHeaderProps) {
   const L = resumeLabels();
-  const router = useRouter();
+  const { promptNavigation, discardAndNavigate } = useUnsavedNavigationPrompt();
+  const { state, markAsSaved } = useResumeContext();
+  const [isSaving, setIsSaving] = useState(false);
+
   const capitalizeWords = (str: string) => {
     return str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const handleBackClick = () => {
-    if (!hasUnsavedChanges) {
-      router.push('/');
+    promptNavigation("/resumes");
+  };
+
+  const handleSaveAndLeave = async () => {
+    setIsSaving(true);
+    try {
+      await updateResume(state.resume.id, state.resume);
+      markAsSaved();
+      toast({
+        title: tResume("Changes saved", "Modifications enregistrées"),
+        description: L.successSaved,
+      });
+      promptNavigation("/resumes");
+    } catch (error) {
+      toast({
+        title: tResume("Save failed", "Échec de l'enregistrement"),
+        description:
+          error instanceof Error ? error.message : tResume("Unable to save.", "Impossible d'enregistrer."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Dynamic color classes based on resume type
   const colors = resume.is_base_resume ? {
     gradient: "from-purple-600 via-purple-500 to-indigo-600",
     border: "border-purple-200/50",
@@ -49,6 +88,47 @@ export function ResumeEditorHeader({
     gradientOverlay: "#fce7f330",
   };
 
+  const leaveDialog = (
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>{L.unsavedChanges}</AlertDialogTitle>
+        <AlertDialogDescription>
+          {"unsavedChangesDescription" in L
+            ? (L as { unsavedChangesDescription: string }).unsavedChangesDescription
+            : "Vous avez des modifications non enregistrées. Que souhaitez-vous faire avant de quitter cette page ?"}
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <AlertDialogCancel disabled={isSaving}>{L.cancel}</AlertDialogCancel>
+        <AlertDialogAction
+          disabled={isSaving}
+          onClick={(e) => {
+            e.preventDefault();
+            discardAndNavigate("/resumes");
+          }}
+          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        >
+          {L.leaveWithoutSaving}
+        </AlertDialogAction>
+        <Button
+          type="button"
+          disabled={isSaving}
+          onClick={() => void handleSaveAndLeave()}
+          className="bg-[var(--color-primary-blue)] hover:opacity-90"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+              {L.save}
+            </>
+          ) : (
+            (L.saveAndLeave)
+          )}
+        </Button>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  );
+
   return (
     <div className={cn(
       "h-20 border-b backdrop-blur-xl fixed left-0 right-0 z-40 shadow-lg",
@@ -56,7 +136,6 @@ export function ResumeEditorHeader({
       `bg-gradient-to-r ${colors.background}`,
       colors.shadow
     )}>
-      {/* Gradient Overlays */}
       <div className={cn(
         "absolute inset-0",
         `bg-[linear-gradient(to_right,${colors.gradientOverlay}_0%,#ffffff40_50%,${colors.gradientOverlay}_100%)]`,
@@ -73,9 +152,7 @@ export function ResumeEditorHeader({
         "pointer-events-none"
       )} />
       
-      {/* Content Container */}
       <div className="max-w-[2000px] mx-auto h-full px-6 flex items-center justify-between relative">
-        {/* Left Section - Logo, Title  */}
         <div className="flex items-center gap-6">
           {hasUnsavedChanges ? (
             <AlertDialog>
@@ -84,32 +161,15 @@ export function ResumeEditorHeader({
                   <Logo className="text-xl cursor-pointer" asLink={false} />
                 </div>
               </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{L.unsavedChanges}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Vous avez des modifications non enregistrées. Quitter cette page les perdra.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{L.cancel}</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => router.push('/resumes')}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {L.leave}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
+              {leaveDialog}
             </AlertDialog>
           ) : (
-            <div onClick={handleBackClick}>
+            <div onClick={handleBackClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && handleBackClick()}>
               <Logo className="text-xl cursor-pointer" asLink={false} />
             </div>
           )}
           <div className="h-8 w-px bg-purple-200/50 hidden sm:block" />
           <div className="flex flex-col justify-center gap-1">
-            {/* Resume Title Section */}
             <div className="flex flex-col ">
               <h1 className="text-xl font-semibold">
                 <span className={cn(
@@ -136,4 +196,4 @@ export function ResumeEditorHeader({
       </div>
     </div>
   );
-} 
+}

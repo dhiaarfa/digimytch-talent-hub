@@ -7,12 +7,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Subscriptions table
 CREATE TABLE IF NOT EXISTS public.subscriptions (
@@ -176,23 +179,23 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Subscriptions RLS
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY subscriptions_policy ON public.subscriptions
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Resumes RLS
 ALTER TABLE public.resumes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY resumes_policy ON public.resumes
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Jobs RLS
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY jobs_policy ON public.jobs
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Profiles RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY profiles_policy ON public.profiles
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);

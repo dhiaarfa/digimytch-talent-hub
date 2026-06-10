@@ -1,10 +1,7 @@
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { toSafeJsonScript } from "@/lib/html-safety";
 import { AuthDialogProvider } from "@/components/auth/auth-dialog-provider";
-import { getAuthUserWithTimeout } from "@/lib/supabase-resilience";
 import { LandingNav } from "@/components/landing/talent-hub/landing-nav";
 import { HeroSection } from "@/components/landing/talent-hub/hero-section";
 import { TrustBanner } from "@/components/landing/talent-hub/trust-banner";
@@ -12,27 +9,20 @@ import {
   HowItWorks,
   FeaturesGrid,
   ScoreBridgePreview,
+  TestimonialsSection,
   FAQSection,
   CTABanner,
   LandingFooter,
 } from "@/components/landing/talent-hub/sections";
 
 export const metadata: Metadata = {
-  title: "Digimytch Talent Hub",
+  title: "Digimytch Talent Hub — CV, lettres IA & matching emploi",
   description:
-    "Plateforme tunisienne : CV intelligent, matching emploi–profil, formations et suivi des candidatures.",
+    "Plateforme tunisienne : CV et lettres de motivation IA, score de matching 0-100, analyse LinkedIn, formations ciblées, candidatures et simulateur d'entretien.",
 };
 
 export default async function Page() {
-  const supabase = await createClient();
-  const { user, unavailable } = await getAuthUserWithTimeout(() =>
-    supabase.auth.getUser()
-  );
-
-  if (user) {
-    redirect("/home");
-  }
-
+  // Redirection des utilisateurs connectés : middleware (instantané, sans flash landing).
   const appName = "Digimytch Talent Hub";
   const structuredData = {
     "@context": "https://schema.org",
@@ -44,7 +34,15 @@ export default async function Page() {
       price: "0",
       priceCurrency: "TND",
     },
-    description: metadata.description,
+    description:
+      "CV et lettres IA, matching offres, analyse LinkedIn, formations et suivi candidatures pour le marché tunisien.",
+    featureList: [
+      "CV et lettres de motivation IA",
+      "Score de matching 0-100",
+      "Analyse LinkedIn",
+      "Formations ciblées",
+      "Suivi candidatures et entretiens",
+    ].join(", "),
     operatingSystem: "Web",
   };
 
@@ -62,22 +60,12 @@ export default async function Page() {
         <main className="digimytch-landing min-h-screen">
           <LandingNav />
 
-          {unavailable && (
-            <div
-              role="alert"
-              className="mx-4 sm:mx-6 max-w-3xl mx-auto mt-20 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-            >
-              <strong className="font-semibold">Base de données hors ligne.</strong>{" "}
-              Démarrez Supabase local ou configurez une URL Supabase cloud dans{" "}
-              <code className="text-xs">.env</code>.
-            </div>
-          )}
-
           <HeroSection />
           <TrustBanner />
           <HowItWorks />
           <FeaturesGrid />
           <ScoreBridgePreview />
+          <TestimonialsSection />
           <FAQSection />
           <CTABanner />
           <LandingFooter />

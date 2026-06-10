@@ -1,5 +1,5 @@
 import { getCachedApplications } from "@/lib/digimytch-queries";
-import { CandidaturesKanban } from "@/components/digimytch/candidatures-kanban";
+import { CandidaturesKanbanLazy } from "@/components/digimytch/digimytch-panels-lazy";
 import { DemoBanner } from "@/components/digimytch/demo-banner";
 import { PageGuide } from "@/components/digimytch/page-guide";
 import { PageLoadError } from "@/components/digimytch/page-load-error";
@@ -34,7 +34,7 @@ export default async function CandidaturesPage() {
         ]}
         action={{ label: "Analyser une offre", href: "/jobs" }}
       />
-      <CandidaturesKanban initialRows={rows} />
+      <CandidaturesKanbanLazy initialRows={rows} />
     </main>
   );
 }

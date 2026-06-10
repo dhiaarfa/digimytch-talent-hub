@@ -1,19 +1,24 @@
 import { Resume, Job } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Trash2, Plus, Sparkles, Loader2 } from "lucide-react";
+import { FileText, Trash2, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AIConfig } from "@/utils/ai-tools";
 import { generateCoverLetterText } from "@/utils/actions/cover-letter/actions";
+import { updateResume } from "@/utils/actions/resumes/actions";
 import { useResumeContext } from "../resume-editor-context";
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useApiKeys, useDefaultModel } from "@/hooks/use-api-keys";
 import { getDefaultModel, selectBestModelForTask } from "@/lib/ai-models";
 import { isDigimytchTalentHub } from "@/lib/digimytch-config";
-import { addNotification } from "@/components/ui/notification-center";
 import { resumeLabels } from "@/lib/resume-labels";
+import {
+  normalizeCoverLetterContent,
+  hasCoverLetterContent,
+} from "@/lib/cover-letter-html";
+import { mergeCoverLetterPayload } from "@/lib/cover-letter-settings";
 
 const MANUAL_PLACEHOLDER =
   "Madame, Monsieur,\n\nJe me permets de vous adresser ma candidature pour le poste de…\n\nCordialement,";
@@ -22,30 +27,58 @@ interface CoverLetterPanelProps {
   resume: Resume;
   job: Job | null;
   aiConfig?: AIConfig;
+  /** Mode lettre dédié : génération auto + aperçu live à droite */
+  letterMode?: boolean;
 }
 
 function getCoverLetterPlain(resume: Resume): string {
   const raw = resume.cover_letter?.content;
-  if (typeof raw === "string") return raw;
-  return "";
+  if (typeof raw !== "string") return "";
+  if (/<[a-z]/i.test(raw)) {
+    return raw
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  return raw;
 }
 
-export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProps) {
-  const { dispatch } = useResumeContext();
+export function CoverLetterPanel({
+  resume,
+  job,
+  aiConfig,
+  letterMode = false,
+}: CoverLetterPanelProps) {
+  const { state, dispatch } = useResumeContext();
   const router = useRouter();
   const L = resumeLabels();
   const { apiKeys } = useApiKeys();
   const { defaultModel } = useDefaultModel();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [customPrompt] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const autoGenStarted = useRef(false);
   const [showManualEditor, setShowManualEditor] = useState(
-    () => resume.has_cover_letter || Boolean(getCoverLetterPlain(resume))
+    () => hasCoverLetterContent(resume) || letterMode
   );
   const [draft, setDraft] = useState(() => getCoverLetterPlain(resume));
 
-  const updateField = (field: keyof Resume, value: Resume[keyof Resume]) => {
-    dispatch({ type: "UPDATE_FIELD", field, value });
-  };
+  const updateField = useCallback(
+    (field: keyof Resume, value: Resume[keyof Resume]) => {
+      dispatch({ type: "UPDATE_FIELD", field, value });
+    },
+    [dispatch]
+  );
+
+  useEffect(() => {
+    const plain = getCoverLetterPlain(state.resume);
+    if (plain && plain !== draft) {
+      setDraft(plain);
+      setShowManualEditor(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync draft when persisted content changes
+  }, [state.resume.cover_letter?.content, state.resume.has_cover_letter]);
 
   const resolveConfig = (): AIConfig => {
     const fallback = isDigimytchTalentHub()
@@ -57,6 +90,46 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
     };
   };
 
+  const applyContentToContext = useCallback(
+    (content: string, persist = false) => {
+      const html = normalizeCoverLetterContent(content);
+      updateField(
+        "cover_letter",
+        mergeCoverLetterPayload(state.resume.cover_letter as Record<string, unknown>, {
+          content: html,
+        }) as Resume["cover_letter"]
+      );
+      updateField("has_cover_letter", true);
+      setDraft(getCoverLetterPlain({ ...state.resume, cover_letter: { content: html } }));
+      setShowManualEditor(true);
+
+      if (persist) {
+        setIsSaving(true);
+        const merged: Resume = {
+          ...state.resume,
+          cover_letter: mergeCoverLetterPayload(
+            state.resume.cover_letter as Record<string, unknown>,
+            { content: html }
+          ) as Resume["cover_letter"],
+          has_cover_letter: true,
+        };
+        void updateResume(state.resume.id, merged)
+          .then(() => {
+            dispatch({ type: "SET_HAS_CHANGES", value: false });
+          })
+          .catch((err) => {
+            toast({
+              title: "Enregistrement impossible",
+              description: err instanceof Error ? err.message : "Erreur réseau",
+              variant: "destructive",
+            });
+          })
+          .finally(() => setIsSaving(false));
+      }
+    },
+    [dispatch, state.resume, updateField]
+  );
+
   const saveManualLetter = () => {
     const content = draft.trim();
     if (!content) {
@@ -67,11 +140,10 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
       });
       return;
     }
-    updateField("cover_letter", { content, lastUpdated: new Date().toISOString() });
-    updateField("has_cover_letter", true);
+    applyContentToContext(content, true);
     toast({
       title: "Lettre enregistrée",
-      description: "Votre lettre a été sauvegardée dans ce CV.",
+      description: "Visible dans l'aperçu à droite.",
     });
   };
 
@@ -79,7 +151,7 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
     if (mode === "full" && !job) {
       toast({
         title: "Offre requise",
-        description: "Liez ce CV à une offre (CV sur mesure) pour une génération IA complète.",
+        description: "Ce CV doit être lié à une offre pour générer la lettre.",
         variant: "destructive",
       });
       return;
@@ -92,7 +164,6 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
           ? [
               "Améliore cette lettre de motivation en français (même structure, ton professionnel) :",
               draft,
-              customPrompt ? `Consignes : ${customPrompt}` : "",
             ].join("\n")
           : [
               "Rédige une lettre de motivation pour cette offre et ce CV :",
@@ -107,7 +178,6 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
               })}`,
               `Date : ${new Date().toLocaleDateString("fr-FR")}.`,
               `Coordonnées : ${resume.first_name} ${resume.last_name}, ${resume.email}`,
-              customPrompt ? `Consignes : ${customPrompt}` : "",
             ].join("\n");
 
       const result = await generateCoverLetterText(prompt, resolveConfig());
@@ -120,26 +190,11 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
         return;
       }
 
-      setDraft(result.content);
-      updateField("cover_letter", { content: result.content, lastUpdated: new Date().toISOString() });
-      updateField("has_cover_letter", true);
-      setShowManualEditor(true);
+      applyContentToContext(result.content, true);
       toast({
         title: mode === "improve" ? "Lettre améliorée" : "Lettre générée",
-        description: "La lettre de motivation a été mise à jour.",
+        description: "Consultez l'aperçu à droite.",
       });
-      if (mode === "full" || mode === "improve") {
-        const role =
-          job?.position_title?.trim() ||
-          resume.target_role?.trim() ||
-          "votre candidature";
-        addNotification({
-          type: "success",
-          title: "Lettre de motivation prête",
-          message: `Votre lettre pour « ${role} » a été générée avec succès.`,
-          action: { label: "Ouvrir →", href: "/resumes" },
-        });
-      }
     } catch (error) {
       toast({
         title: "Erreur",
@@ -151,8 +206,30 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
     }
   };
 
+  useEffect(() => {
+    if (!letterMode || !job || autoGenStarted.current) return;
+    if (getCoverLetterPlain(state.resume).length > 40) return;
+    autoGenStarted.current = true;
+    void generateCoverLetter("full");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount when empty
+  }, [letterMode, job?.id]);
+
+  useEffect(() => {
+    if (!letterMode || !draft.trim()) return;
+    const t = setTimeout(() => {
+      applyContentToContext(draft, false);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [draft, letterMode, applyContentToContext]);
+
   const manualEditor = (
     <div className="space-y-3">
+      {letterMode && isGenerating && (
+        <p className="text-xs text-amber-800 bg-amber-100/80 rounded-md px-2 py-1.5 flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+          Rédaction automatique de votre lettre à partir de l&apos;offre et du CV…
+        </p>
+      )}
       <Textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -161,7 +238,14 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
         className="text-sm font-normal resize-y min-h-[200px]"
       />
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" onClick={saveManualLetter} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button
+          type="button"
+          size="sm"
+          onClick={saveManualLetter}
+          disabled={isSaving}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
           {L.save}
         </Button>
         <Button
@@ -178,7 +262,7 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
           )}
           Améliorer avec l&apos;IA
         </Button>
-        {resume.has_cover_letter && (
+        {hasCoverLetterContent(state.resume) && (
           <Button
             type="button"
             size="sm"
@@ -188,7 +272,7 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
               updateField("has_cover_letter", false);
               updateField("cover_letter", null);
               setDraft("");
-              setShowManualEditor(false);
+              setShowManualEditor(letterMode);
             }}
           >
             <Trash2 className="h-4 w-4 mr-1" />
@@ -199,7 +283,7 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
     </div>
   );
 
-  if (resume.is_base_resume) {
+  if (resume.is_base_resume && !letterMode) {
     return (
       <div
         className={cn(
@@ -213,49 +297,12 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
           </div>
           <h3 className="text-lg font-semibold text-purple-900">{L.coverLetterLabel}</h3>
         </div>
-
-        {showManualEditor ? (
-          manualEditor
-        ) : (
-          <>
-            <div className="border rounded-lg p-4 bg-white/80 space-y-2">
-              <h4 className="font-medium text-purple-900">Rédiger manuellement</h4>
-              <p className="text-sm text-purple-700/90">
-                Commencez à écrire votre lettre directement dans l&apos;éditeur.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="border-purple-300"
-                onClick={() => {
-                  setShowManualEditor(true);
-                  updateField("has_cover_letter", true);
-                }}
-              >
-                Ouvrir l&apos;éditeur de lettre
-              </Button>
-            </div>
-
-            <div className="border rounded-lg p-4 bg-white/80 space-y-2">
-              <h4 className="font-medium text-purple-900">Générer avec l&apos;IA</h4>
-              <p className="text-sm text-purple-700/90">
-                L&apos;IA rédige une lettre adaptée à l&apos;offre. Nécessite un CV sur mesure lié à une annonce.
-              </p>
-              <p className="text-xs text-amber-700">
-                Créez d&apos;abord un CV sur mesure depuis Analyser une offre.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => router.push("/jobs")}
-              >
-                Analyser une offre →
-              </Button>
-            </div>
-          </>
-        )}
+        <p className="text-sm text-purple-700/90">
+          Créez un CV sur mesure depuis une offre, puis ouvrez-le en mode lettre.
+        </p>
+        <Button type="button" size="sm" variant="outline" onClick={() => router.push("/jobs")}>
+          Analyser une offre →
+        </Button>
       </div>
     );
   }
@@ -263,7 +310,8 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
   return (
     <div
       className={cn(
-        "p-4 backdrop-blur-xl rounded-lg shadow-lg bg-white/80 border border-emerald-600/50",
+        "p-4 backdrop-blur-xl rounded-lg shadow-lg bg-white/80 border",
+        letterMode ? "border-amber-300/70" : "border-emerald-600/50",
         "space-y-4"
       )}
     >
@@ -274,54 +322,21 @@ export function CoverLetterPanel({ resume, job, aiConfig }: CoverLetterPanelProp
         <h3 className="text-lg font-semibold text-emerald-900">{L.coverLetterLabel}</h3>
       </div>
 
-      {showManualEditor || resume.has_cover_letter ? (
-        <>
-          {manualEditor}
-          {job && (
-            <div className="pt-2 border-t border-emerald-200/60 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Génération complète à partir de l&apos;offre et de votre CV :
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => void generateCoverLetter("full")}
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Génération…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    {L.createCoverLetter}
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-        </>
+      {letterMode && (
+        <p className="text-xs text-[var(--digi-muted)]">
+          La lettre est générée automatiquement à partir de votre offre et de votre CV. Utilisez
+          l&apos;assistant IA en bas (comme pour le CV) pour proposer des modifications — acceptez ou
+          refusez chaque suggestion. Aperçu et mise en page à droite.
+        </p>
+      )}
+
+      {showManualEditor || letterMode ? (
+        manualEditor
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Rédigez votre lettre à la main ou laissez l&apos;IA la générer à partir de l&apos;offre liée.
+            Rédigez votre lettre ou laissez l&apos;IA la générer à partir de l&apos;offre liée.
           </p>
-          <Button
-            type="button"
-            size="sm"
-            className="w-full border-emerald-600/50 text-emerald-700"
-            variant="outline"
-            onClick={() => {
-              setShowManualEditor(true);
-              updateField("has_cover_letter", true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Ouvrir l&apos;éditeur de lettre
-          </Button>
           {job && (
             <Button
               type="button"

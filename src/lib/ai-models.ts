@@ -4,6 +4,11 @@
  */
 
 import { isDigimytchTalentHub } from './digimytch-config'
+import {
+  isDigimytchOpenRouterModelId,
+  normalizeDigimytchOpenRouterModelId,
+  selectDigimytchModelForTask,
+} from './digimytch-openrouter-models'
 import { ServiceName } from './types'
 
 // ========================
@@ -246,14 +251,14 @@ export const AI_MODELS: AIModel[] = [
     }
   },
   {
-    id: 'deepseek/deepseek-chat:free',
-    name: 'DeepSeek V3',
+    id: 'openrouter/free',
+    name: 'OpenRouter Free',
     provider: 'openrouter',
     features: {
       isFree: true,
       isRecommended: true,
       isUnstable: false,
-      maxTokens: 163840,
+      maxTokens: 128000,
       supportsVision: false,
       supportsTools: true
     },
@@ -263,8 +268,8 @@ export const AI_MODELS: AIModel[] = [
     }
   },
   {
-    id: 'meta-llama/llama-4-maverick:free',
-    name: 'Llama 4 Maverick',
+    id: 'moonshotai/kimi-k2.6:free',
+    name: 'Kimi K2.6 Free',
     provider: 'openrouter',
     features: {
       isFree: true,
@@ -279,13 +284,13 @@ export const AI_MODELS: AIModel[] = [
     }
   },
   {
-    id: 'google/gemini-2.0-flash-exp:free',
-    name: 'Gemini 2.0 Flash',
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Gemma 4 26B Free',
     provider: 'openrouter',
     features: {
       isFree: true,
       isUnstable: false,
-      maxTokens: 1000000,
+      maxTokens: 128000,
       supportsVision: true,
       supportsTools: true
     },
@@ -411,7 +416,7 @@ const MODEL_ALIASES: Record<string, string> = {
 
 export const DIGIMYTCH_AI_MODEL_STORAGE_KEY = 'digi-ai-model'
 
-export type DigimytchTask = 'cv' | 'matching' | 'lettre' | 'chat' | 'interview'
+export type DigimytchTask = 'cv' | 'matching' | 'lettre' | 'chat' | 'interview' | 'linkedin'
 
 export type DigimytchFreeModel = {
   id: string
@@ -425,61 +430,61 @@ export type DigimytchFreeModel = {
 
 export const DIGIMYTCH_FREE_MODELS: DigimytchFreeModel[] = [
   {
-    id: 'deepseek/deepseek-chat:free',
-    name: 'DeepSeek V3',
+    id: 'openrouter/free',
+    name: 'OpenRouter Free',
     provider: 'openrouter',
-    description: "Excellent pour l'analyse et le code",
+    description: 'Routeur gratuit — chat et assistant',
     badge: 'Recommandé',
-    isFree: true,
-    bestFor: ['matching', 'cv', 'analyse'],
-  },
-  {
-    id: 'meta-llama/llama-4-maverick:free',
-    name: 'Llama 4 Maverick',
-    provider: 'openrouter',
-    description: 'Rapide et polyvalent',
-    badge: 'Rapide',
     isFree: true,
     bestFor: ['chat', 'questions', 'général'],
   },
   {
-    id: 'google/gemini-2.0-flash-exp:free',
-    name: 'Gemini 2.0 Flash',
+    id: 'moonshotai/kimi-k2.6:free',
+    name: 'Kimi K2.6',
     provider: 'openrouter',
-    description: 'Idéal pour les lettres longues',
-    badge: 'Google',
+    description: 'CV, import et analyse d\'offres',
+    badge: 'CV',
+    isFree: true,
+    bestFor: ['matching', 'cv', 'analyse'],
+  },
+  {
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Gemma 4 26B',
+    provider: 'openrouter',
+    description: 'Lettres de motivation longues',
+    badge: 'Lettre',
     isFree: true,
     bestFor: ['lettre', 'long', 'reformulation'],
   },
   {
-    id: 'qwen/qwen3-235b-a22b:free',
-    name: 'Qwen3 235B',
+    id: 'meta-llama/llama-3.3-70b-instruct:free',
+    name: 'Llama 3.3 70B',
     provider: 'openrouter',
-    description: 'Le plus puissant, gratuit',
+    description: 'Entretien et dialogue',
+    badge: 'Entretien',
+    isFree: true,
+    bestFor: ['interview', 'dialogue'],
+  },
+  {
+    id: 'nvidia/nemotron-3-super-120b-a12b:free',
+    name: 'Nemotron Super 120B',
+    provider: 'openrouter',
+    description: 'Tâches complexes',
     badge: 'Puissant',
     isFree: true,
     bestFor: ['complexe', 'analyse', 'raisonnement'],
   },
 ]
 
-export const DIGIMYTCH_DEFAULT_MODEL_ID = DIGIMYTCH_FREE_MODELS[0].id
+export const DIGIMYTCH_DEFAULT_MODEL_ID = 'openrouter/free'
 
 export function selectBestModelForTask(task: DigimytchTask): string {
-  switch (task) {
-    case 'matching':
-    case 'cv':
-      return 'deepseek/deepseek-chat:free'
-    case 'lettre':
-      return 'google/gemini-2.0-flash-exp:free'
-    case 'interview':
-      return 'meta-llama/llama-4-maverick:free'
-    case 'chat':
-    default:
-      return 'deepseek/deepseek-chat:free'
-  }
+  return selectDigimytchModelForTask(task)
 }
 
 export function isDigimytchFreeModelId(modelId: string): boolean {
+  const normalized = normalizeDigimytchOpenRouterModelId(modelId)
+  if (isDigimytchOpenRouterModelId(normalized)) return true
   return DIGIMYTCH_FREE_MODELS.some((m) => m.id === modelId)
 }
 

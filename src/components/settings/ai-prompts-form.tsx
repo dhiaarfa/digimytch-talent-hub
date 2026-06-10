@@ -197,12 +197,12 @@ export function AiPromptsForm() {
                         {PROMPT_METADATA[key].name}
                       </span>
                       {isPromptCustomized && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 text-purple-700">
+                        <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700">
                           Customized
                         </span>
                       )}
                       {hasUnsavedChanges && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-700">
+                        <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">
                           Unsaved
                         </span>
                       )}

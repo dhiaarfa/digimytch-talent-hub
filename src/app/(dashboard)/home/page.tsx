@@ -27,10 +27,14 @@ import { getDashboardData } from "@/utils/actions";
 import { checkSubscriptionPlan } from "@/utils/actions/stripe/actions";
 import { FREE_PLAN_RESUME_LIMITS } from "@/lib/resume-limits";
 import { DigimytchHomeStats } from "@/components/digimytch/digimytch-home-stats";
+import { OnboardingProgress } from "@/components/digimytch/onboarding-progress";
 import { DigimytchHomeStatsSkeleton } from "@/components/digimytch/digimytch-home-stats-skeleton";
 import { DemoBanner } from "@/components/digimytch/demo-banner";
 import { TalentHubHomeCards } from "@/components/digimytch/talent-hub-home-cards";
+import { LoyaltyPointsBadge } from "@/components/digimytch/loyalty-points-badge";
 import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { DigimytchOfflineFallback } from "@/components/digimytch/digimytch-offline-fallback";
+import { getCachedAuthUser } from "@/lib/server-auth";
 
 
 
@@ -64,6 +68,7 @@ export default async function Home({
   };
 
   const digimytch = isDigimytchTalentHub();
+  const offlineMode = params?.offline === "1";
 
   let data;
   let subscription: Awaited<ReturnType<typeof checkSubscriptionPlan>> = fallbackSubscription;
@@ -75,10 +80,30 @@ export default async function Home({
       subscription = { ...fallbackSubscription, hasProAccess: true, plan: "pro" };
     }
     if (!data.profile) {
+      if (digimytch) {
+        return (
+          <div className="p-6">
+            <DigimytchOfflineFallback title="Profil introuvable" description="Impossible de charger votre profil. Vérifiez Supabase puis réessayez." />
+          </div>
+        );
+      }
       redirect("/");
     }
-  } catch {
-    // Redirect to login if error occurs
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const { user, unavailable } = await getCachedAuthUser();
+
+    if (digimytch && (offlineMode || unavailable || message.includes("SUPABASE") || message.includes("DASHBOARD_TIMEOUT"))) {
+      return (
+        <div className="p-6 min-h-[50vh] flex items-center justify-center">
+          <DigimytchOfflineFallback />
+        </div>
+      );
+    }
+
+    if (!user) {
+      redirect("/auth/login");
+    }
     redirect("/");
   }
 
@@ -117,7 +142,7 @@ export default async function Home({
   // Check if user has Pro access (paid, canceling-but-active, or trialing)
   const isProPlan = subscription.hasProAccess;
 
-  // console.log(subscription);
+  // logger.debug(subscription);
   
   // Free plan limits
   const canCreateBase = isProPlan || baseResumesCount < FREE_PLAN_RESUME_LIMITS.base;
@@ -165,9 +190,13 @@ export default async function Home({
             {digimytch && (
               <>
                 <DemoBanner />
+                <Suspense fallback={null}>
+                  <OnboardingProgress />
+                </Suspense>
                 <Suspense fallback={<DigimytchHomeStatsSkeleton />}>
                   <DigimytchHomeStats />
                 </Suspense>
+                <LoyaltyPointsBadge />
               </>
             )}
             {!digimytch && !isProPlan && <ApiKeyAlert variant="upgrade" />}

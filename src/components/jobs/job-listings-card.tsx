@@ -229,6 +229,7 @@ export function JobListingsCard() {
                   <EntityCardImage
                     src={jobImage.src}
                     alt={jobImage.alt}
+                    categoryHint={jobImage.categoryHint}
                     variant="job"
                     priority={idx < 3}
                   />

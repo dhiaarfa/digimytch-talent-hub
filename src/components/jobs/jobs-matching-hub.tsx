@@ -1,18 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, Target, ClipboardList } from "lucide-react";
+import { ArrowLeft, Link2, Target, ClipboardList, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Job, JobMatchResult, Resume } from "@/lib/types";
+import { getHybridJobsWithMatchScores } from "@/utils/actions/digimytch/actions";
 import { ScoreBridgePanel } from "@/components/jobs/score-bridge-panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddJobModal } from "@/components/jobs/add-job-modal";
+import { PlatformJobsCatalog } from "@/components/jobs/platform-jobs-catalog";
 import { ViewModeToggle, type ViewMode } from "@/components/ui/view-mode-toggle";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/lib/use-language";
 import { appCopy } from "@/lib/digi-i18n";
 import { cn } from "@/lib/utils";
+import { AiPoweredBadge } from "@/components/ui/ai-powered-badge";
 
 export interface JobWithMatch {
   job: Job;
@@ -23,20 +29,61 @@ interface JobsMatchingHubProps {
   resume: Resume | null;
   jobsWithMatch: JobWithMatch[];
   trackedJobIds: string[];
+  availableCatalogSlugs?: string[];
 }
 
-export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds }: JobsMatchingHubProps) {
+export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds, availableCatalogSlugs = [] }: JobsMatchingHubProps) {
   const { lang } = useLanguage();
   const t = appCopy(lang);
   const [addJobOpen, setAddJobOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const count = jobsWithMatch.length;
+  const [semanticOn, setSemanticOn] = useState(false);
+  const [displayMatches, setDisplayMatches] = useState(jobsWithMatch);
+  const [pending, startTransition] = useTransition();
+  const count = displayMatches.length;
   const trackedSet = new Set(trackedJobIds);
+
+  useEffect(() => {
+    if (!semanticOn) setDisplayMatches(jobsWithMatch);
+  }, [jobsWithMatch, semanticOn]);
+
+  const toggleSemantic = useCallback(
+    (enabled: boolean) => {
+      setSemanticOn(enabled);
+      if (!enabled) {
+        setDisplayMatches(jobsWithMatch);
+        return;
+      }
+      startTransition(async () => {
+        try {
+          const hybrid = await getHybridJobsWithMatchScores();
+          setDisplayMatches(hybrid.jobsWithMatch);
+        } catch (e) {
+          toast.error(
+            e instanceof Error ? e.message : "Recherche sémantique indisponible"
+          );
+          setSemanticOn(false);
+          setDisplayMatches(jobsWithMatch);
+        }
+      });
+    },
+    [jobsWithMatch]
+  );
 
   return (
     <div className="space-y-8">
       <header className="space-y-4">
+        <Link
+          href="/home"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--digi-muted)] hover:text-[var(--digi-navy)] transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+          {lang === "en" ? "Dashboard" : "Tableau de bord"}
+        </Link>
         <div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <AiPoweredBadge />
+          </div>
           <h1 className="font-display text-2xl font-bold text-[var(--digi-navy)] dark:text-[var(--digi-dark-fg)]">
             {t.jobsTitle}
           </h1>
@@ -72,12 +119,24 @@ export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds }: JobsMa
           className="btn-digi-primary w-full sm:w-auto"
           onClick={() => setAddJobOpen(true)}
         >
-          <Plus className="h-4 w-4 mr-2" />
-          {t.jobsAnalyze}
+          <Link2 className="h-4 w-4 mr-2" />
+          Analyser une offre externe
         </Button>
       </header>
 
       <AddJobModal open={addJobOpen} onOpenChange={setAddJobOpen} />
+
+      <PlatformJobsCatalog availableSlugs={availableCatalogSlugs} />
+
+      <section className="rounded-xl border border-dashed border-[var(--digi-border)] bg-[var(--digi-surface)]/50 px-4 py-3 text-xs text-[var(--digi-muted)]">
+        <p>
+          <strong className="text-[var(--digi-dark)]">Offre externe</strong> : vous collez une annonce LinkedIn / Rekrute — score personnalisé sur votre CV.
+        </p>
+        <p className="mt-1">
+          <strong className="text-[var(--digi-dark)]">Offre Digimytch</strong>{" "}
+          <Sparkles className="inline h-3 w-3 text-[#030A8C]" aria-hidden /> : catalogue pré-rempli — idéal pour tester le matching rapidement.
+        </p>
+      </section>
 
       {!resume && (
         <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/30 dark:border-amber-800">
@@ -107,6 +166,28 @@ export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds }: JobsMa
             <h2 className="text-sm font-semibold text-[var(--digi-dark)] dark:text-[var(--digi-dark-fg)]">
               {t.jobsYourOffers} ({count})
             </h2>
+            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--digi-border)] bg-white dark:bg-[var(--digi-card)] px-3 py-1.5">
+              <Switch
+                id="semantic-matching"
+                checked={semanticOn}
+                disabled={pending || !resume}
+                onCheckedChange={toggleSemantic}
+              />
+              <Label
+                htmlFor="semantic-matching"
+                className="text-xs font-medium cursor-pointer text-[var(--digi-dark)]"
+              >
+                {pending ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                    {t.jobsSemanticLoading}
+                  </span>
+                ) : (
+                  t.jobsSemanticToggle
+                )}
+              </Label>
+            </div>
             <div className="flex items-center gap-2">
               <ViewModeToggle value={viewMode} onChange={setViewMode} />
               <Button asChild variant="ghost" size="sm" className="text-[var(--digi-muted)]">
@@ -116,6 +197,7 @@ export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds }: JobsMa
                 </Link>
               </Button>
             </div>
+            </div>
           </div>
           <div
             className={cn(
@@ -124,13 +206,14 @@ export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds }: JobsMa
                 : "flex flex-col gap-4"
             )}
           >
-            {jobsWithMatch.map(({ job, match }) => (
+            {displayMatches.map(({ job, match }) => (
               <ScoreBridgePanel
                 key={job.id}
                 job={job}
                 match={match}
                 hasResume={!!resume}
                 alreadyTracked={trackedSet.has(job.id)}
+                semanticMode={semanticOn}
               />
             ))}
           </div>

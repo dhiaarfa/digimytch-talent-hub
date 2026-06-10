@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { Profile, ResumeSummary } from "@/lib/types";
+import { getCachedAuthUser } from "@/lib/server-auth";
 
 interface DashboardData {
   profile: Profile | null;
@@ -9,22 +10,39 @@ interface DashboardData {
   tailoredResumes: ResumeSummary[];
 }
 
+const DASHBOARD_QUERY_TIMEOUT_MS = 5_000;
+
+async function withDashboardTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`DASHBOARD_TIMEOUT:${label}`)),
+        DASHBOARD_QUERY_TIMEOUT_MS
+      );
+    }),
+  ]);
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    throw new Error('User not authenticated');
+  const { user, unavailable } = await getCachedAuthUser();
+
+  if (unavailable) {
+    throw new Error("SUPABASE_UNAVAILABLE");
+  }
+
+  if (!user) {
+    throw new Error("User not authenticated");
   }
 
   try {
     // Fetch profile data
     let profile;
-    const { data, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    const { data, error: profileError } = await withDashboardTimeout(
+      supabase.from('profiles').select('*').eq('user_id', user.id).single(),
+      "profile"
+    );
     
     profile = data;
 
@@ -62,10 +80,16 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
 
     // Fetch resumes data
-    const { data: resumes, error: resumesError } = await supabase
-      .from('resumes')
-      .select('id, user_id, name, target_role, is_base_resume, job_id, created_at, updated_at')
-      .eq('user_id', user.id);
+    const { data: resumes, error: resumesError } = await withDashboardTimeout(
+      supabase
+        .from('resumes')
+        .select(
+          'id, user_id, name, target_role, is_base_resume, job_id, has_cover_letter, created_at, updated_at'
+        )
+        .eq('user_id', user.id)
+        .is('deleted_at', null),
+      "resumes"
+    );
 
     if (resumesError) {
       console.error('Error fetching resumes:', resumesError);

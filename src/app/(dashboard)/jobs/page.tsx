@@ -2,11 +2,15 @@ import { getCachedApplications, getCachedJobsWithMatch } from "@/lib/digimytch-q
 import { JobsMatchingHub } from "@/components/jobs/jobs-matching-hub";
 import { DemoBanner } from "@/components/digimytch/demo-banner";
 import { PageLoadError } from "@/components/digimytch/page-load-error";
+import { CvRequiredGate } from "@/components/digimytch/cv-required-gate";
+import { listPlatformCatalogSlugsForUser } from "@/utils/actions/digimytch/platform-jobs";
+import { ensureDemoJobsIfEmpty } from "@/utils/actions/digimytch/seed-demo-jobs";
 
 export default async function JobsMatchingPage() {
   let data;
   let trackedJobIds: string[] = [];
   try {
+    await ensureDemoJobsIfEmpty().catch(() => undefined);
     const [jobsData, apps] = await Promise.all([
       getCachedJobsWithMatch(),
       getCachedApplications(),
@@ -24,6 +28,17 @@ export default async function JobsMatchingPage() {
   }
 
   const { resume, jobsWithMatch } = data;
+  const availableCatalogSlugs = await listPlatformCatalogSlugsForUser().catch(() => []);
+
+  // Guard: require a base CV before accessing job matching
+  if (!resume) {
+    return (
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <DemoBanner />
+        <CvRequiredGate feature="l'analyse d'offres et du scoring emploi-profil" />
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -32,6 +47,7 @@ export default async function JobsMatchingPage() {
         resume={resume}
         jobsWithMatch={jobsWithMatch}
         trackedJobIds={trackedJobIds}
+        availableCatalogSlugs={availableCatalogSlugs}
       />
     </main>
   );

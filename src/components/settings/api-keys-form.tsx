@@ -202,7 +202,11 @@ export function ApiKeysForm({ isProPlan }: { isProPlan: boolean }) {
           {visibleProviders.map(provider => {
             const existingKey = getExistingKey(provider.id)
             const isVisible = visibleKeys[provider.id]
-            const providerModels = AI_MODELS.filter(model => model.provider === provider.id)
+            const providerModels = AI_MODELS.filter(
+              (model) =>
+                model.provider === provider.id &&
+                (!digimytch || !model.id.toLowerCase().includes("deepseek"))
+            )
 
             return (
               <div 
@@ -333,7 +337,11 @@ export function ApiKeysForm({ isProPlan }: { isProPlan: boolean }) {
             {getProvidersArray().filter(p => p.unstable).map(provider => {
               const existingKey = getExistingKey(provider.id)
               const isVisible = visibleKeys[provider.id]
-              const providerModels = AI_MODELS.filter(model => model.provider === provider.id)
+              const providerModels = AI_MODELS.filter(
+              (model) =>
+                model.provider === provider.id &&
+                (!digimytch || !model.id.toLowerCase().includes("deepseek"))
+            )
 
               return (
                 <div 

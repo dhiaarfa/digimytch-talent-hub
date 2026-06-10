@@ -1,27 +1,22 @@
 'use server'
+import { logger } from '@/lib/logger';
 
 import { createClient } from "@/utils/supabase/server";
 import { Profile, Resume, WorkExperience, Education, Skill, Project, Job } from "@/lib/types";
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { simplifiedResumeSchema, Job as ZodJob } from "@/lib/zod-schemas";
+import { simplifiedResumeSchema } from "@/lib/zod-schemas";
 import { AIConfig } from "@/utils/ai-tools";
-import { generateObject, type LanguageModelUsage, type LanguageModelV1 } from "ai";
-import { resumeScoreSchema } from "@/lib/zod-schemas";
-import { logPromptInjectionAttempt } from "@/lib/ai/usage-ledger";
-import { sanitizeUnknownForPrompt } from "@/lib/prompt-security";
-import { getSubscriptionPlan } from "../stripe/actions";
+import { computeResumeScore } from "@/lib/resume-score-service";
+import { toJsonSafeScore } from "@/lib/resume-score-payload";
 import { getSubscriptionAccessState } from "@/lib/subscription-access";
-import {
-  finishAIUsageRequest,
-  startAIUsageRequest,
-} from "@/lib/ai/usage-ledger";
 import {
   FREE_PLAN_RESUME_LIMITS,
   getResumeLimitExceededMessage,
   type ResumeLimitType,
 } from "@/lib/resume-limits";
 import { AnalyticsEvents } from "@/lib/analytics/events";
+import { queueResumeEmbedding } from "@/utils/actions/embeddings/actions";
 import {
   captureServerAnalyticsEvent,
   getSubscriptionAnalyticsProperties,
@@ -57,7 +52,8 @@ async function assertResumeQuota(
     .from('resumes')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('is_base_resume', isBaseResume);
+    .eq('is_base_resume', isBaseResume)
+    .is('deleted_at', null);
 
   if (countError) {
     throw new Error('Failed to validate resume limits');
@@ -68,36 +64,6 @@ async function assertResumeQuota(
     throw new Error(getResumeLimitExceededMessage(type));
   }
 }
-
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-  },
-  task: (model: LanguageModelV1) => Promise<T>
-) {
-  const { model, usageEventId } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
-
 
 //  SUPABASE ACTIONS
 export async function getResumeById(resumeId: string): Promise<{ resume: Resume; profile: Profile; job: Job | null }> {
@@ -115,6 +81,7 @@ export async function getResumeById(resumeId: string): Promise<{ resume: Resume;
         .select('*')
         .eq('id', resumeId)
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single(),
       supabase
         .from('profiles')
@@ -139,10 +106,11 @@ export async function getResumeById(resumeId: string): Promise<{ resume: Resume;
         .select('*')
         .eq('id', resumeResult.data.job_id)
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .maybeSingle();
 
       if (jobError) {
-        console.error('Failed to fetch associated job:', jobError);
+        logger.error('Failed to fetch associated job:', jobError);
       } else {
         job = jobData;
       }
@@ -178,6 +146,13 @@ export async function updateResume(resumeId: string, data: Partial<Resume>): Pro
     throw new Error('Failed to update resume');
   }
 
+  void queueResumeEmbedding(resumeId);
+
+  if ('name' in data) {
+    revalidatePath('/resumes');
+    revalidatePath('/', 'layout');
+  }
+
   return resume;
 }
 
@@ -201,21 +176,23 @@ export async function deleteResume(resumeId: string): Promise<void> {
       throw new Error('Resume not found or access denied');
     }
 
+    const deletedAt = new Date().toISOString();
+
     if (!resume.is_base_resume && resume.job_id) {
       const { error: jobDeleteError } = await supabase
         .from('jobs')
-        .delete()
+        .update({ deleted_at: deletedAt })
         .eq('id', resume.job_id)
         .eq('user_id', user.id);
 
       if (jobDeleteError) {
-        console.error('Failed to delete associated job:', jobDeleteError);
+        logger.error('Failed to soft-delete associated job:', jobDeleteError);
       }
     }
 
     const { error: deleteError } = await supabase
       .from('resumes')
-      .delete()
+      .update({ deleted_at: deletedAt })
       .eq('id', resumeId)
       .eq('user_id', user.id);
 
@@ -229,6 +206,7 @@ export async function deleteResume(resumeId: string): Promise<void> {
     revalidatePath('/resumes/base', 'layout');
     revalidatePath('/resumes/tailored', 'layout');
     revalidatePath('/jobs', 'layout');
+    revalidatePath('/corbeille');
 
   } catch (error) {
     throw error instanceof Error ? error : new Error('Failed to delete resume');
@@ -271,7 +249,7 @@ export async function createBaseResume(
       .single();
     
     if (profileError) {
-      console.error('Profile fetch error:', profileError);
+      logger.error('Profile fetch error:', profileError);
     }
     profile = data;
   }
@@ -348,7 +326,7 @@ export async function createBaseResume(
     .single();
 
   if (createError) {
-    console.error('\nDatabase Insert Error:', {
+    logger.error('\nDatabase Insert Error:', {
       code: createError.code,
       message: createError.message,
       details: createError.details,
@@ -358,7 +336,7 @@ export async function createBaseResume(
   }
 
   if (!resume) {
-    console.error('\nNo resume data returned after insert');
+    logger.error('\nNo resume data returned after insert');
     throw new Error('Resume creation failed: No data returned');
   }
 
@@ -372,6 +350,11 @@ export async function createBaseResume(
     },
   });
 
+  revalidatePath("/resumes");
+  revalidatePath("/home");
+
+  void queueResumeEmbedding(resume.id);
+
   return resume;
 }
 
@@ -382,9 +365,9 @@ export async function createTailoredResume(
   companyName: string,
   tailoredContent: z.infer<typeof simplifiedResumeSchema>
 ) {
-  console.log('[createTailoredResume] Received jobId:', jobId);
-  console.log('[createTailoredResume] baseResume ID:', baseResume?.id);
-  console.log('[createTailoredResume] Is jobId valid UUID?:', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId || ''));
+  logger.debug('[createTailoredResume] Received jobId:', jobId);
+  logger.debug('[createTailoredResume] baseResume ID:', baseResume?.id);
+  logger.debug('[createTailoredResume] Is jobId valid UUID?:', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId || ''));
 
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -520,138 +503,12 @@ export async function countResumes(type: 'base' | 'tailored' | 'all'): Promise<n
 }
 
 
+/** @deprecated Prefer POST /api/resume-score — long AI runs exceed Server Action limits. */
 export async function generateResumeScore(
-  resume: Resume, 
-  job?: ZodJob | null,
+  resume: Resume,
+  job?: Job | null,
   config?: AIConfig
 ) {
-  
-
-  const { plan, id } = await getSubscriptionPlan(true);
-  const isPro = plan === 'pro';
-
-  const isTailoredResume = job && !resume.is_base_resume;
-
-  const resumeForScoring = {
-    target_role: resume.target_role,
-    is_base_resume: resume.is_base_resume,
-    contact: {
-      first_name: resume.first_name,
-      last_name: resume.last_name,
-      email: resume.email,
-      phone_number: resume.phone_number,
-      location: resume.location,
-      website: resume.website,
-      linkedin_url: resume.linkedin_url,
-      github_url: resume.github_url,
-    },
-    work_experience: resume.work_experience,
-    education: resume.education,
-    skills: resume.skills,
-    projects: resume.projects,
-  };
-
-  const jobForScoring = job
-    ? {
-        company_name: job.company_name,
-        position_title: job.position_title,
-        description: job.description,
-        location: job.location,
-        salary_range: job.salary_range,
-        keywords: job.keywords,
-        work_location: job.work_location,
-        employment_type: job.employment_type,
-      }
-    : null;
-
-  try {
-    const sanitizedResume = sanitizeUnknownForPrompt(resumeForScoring);
-    const sanitizedJob = sanitizeUnknownForPrompt(jobForScoring);
-    if (
-      sanitizedResume.detected ||
-      sanitizedResume.wasTrimmed ||
-      sanitizedJob.detected ||
-      sanitizedJob.wasTrimmed
-    ) {
-      await logPromptInjectionAttempt({
-        userId: id,
-        route: "actions.resumes.generateResumeScore",
-        details: `resume_removed=${sanitizedResume.removedFragments},job_removed=${sanitizedJob.removedFragments}`,
-      });
-    }
-
-    let prompt = `
-    Generate a comprehensive score for this resume: ${sanitizedResume.text}
-    
-    MUST include a 'miscellaneous' field with 2-3 metrics following this format:
-    {
-      "metricName": {
-        "score": number,
-        "reason": "string explanation"
-      }
-    }
-    Example: 
-    "keywordOptimization": {
-      "score": 85,
-      "reason": "Good use of industry keywords but could add more variation"
-    }
-    `;
-
-    // Enhanced prompt for tailored resumes with job context
-    if (isTailoredResume) {
-      prompt += `
-      
-      THIS IS A TAILORED RESUME FOR A SPECIFIC JOB. Job details: ${sanitizedJob.text}
-      
-      IMPORTANT: Since this is a tailored resume, you MUST include the 'jobAlignment' field with detailed analysis:
-      
-      1. KEYWORD MATCH ANALYSIS:
-         - Compare resume content with job description keywords
-         - Identify matched keywords and missing critical keywords
-         - Score based on keyword density and relevance
-      
-      2. REQUIREMENTS MATCH ANALYSIS:
-         - Analyze how well the resume addresses job requirements
-         - Identify which requirements are clearly addressed
-         - Highlight gaps where requirements aren't demonstrated
-      
-      3. COMPANY FIT ANALYSIS:
-         - Assess alignment with company culture/values (if mentioned in job description)
-         - Evaluate positioning for this specific role
-         - Suggest improvements for better company alignment
-      
-      ALSO INCLUDE:
-      - Set 'isTailoredResume' to true
-      - Provide 'jobSpecificImprovements' with 3-5 specific suggestions for this job
-      - Weight the overall score more heavily on job alignment factors
-      
-      Focus on actionable insights that help the candidate better align their resume with this specific opportunity.
-      `;
-    } else {
-      prompt += `
-      
-      This is a base resume (not tailored to a specific job).
-      - Set 'isTailoredResume' to false
-      - Do NOT include the 'jobAlignment' field
-      - Focus on general resume best practices and improvements
-      `;
-    }
-
-    const { object } = await runTrackedAIRequest({
-      route: 'actions.resumes.generateResumeScore',
-      userId: id,
-      isPro,
-      config,
-    }, (aiClient) => generateObject({
-      model: aiClient,
-      schema: resumeScoreSchema,
-      prompt
-    }));
-
-    // console.log("THE OUTPUTTED object", object);
-    return object
-  } catch (error) {
-    console.error('Error SCORING resume:', error);
-    throw error;
-  }
+  const { score } = await computeResumeScore(resume, job, config);
+  return toJsonSafeScore(score);
 }

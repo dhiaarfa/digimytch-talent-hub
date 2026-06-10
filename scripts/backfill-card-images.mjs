@@ -1,16 +1,26 @@
 #!/usr/bin/env node
 /**
- * Remplit image_url pour formations et offres existantes (après migration).
- * Les cartes utilisent aussi un repli côté client si image_url est null.
+ * Backfill image_url for courses and jobs using src/lib/card-images.ts logic.
+ *
+ * Usage:
+ *   node scripts/backfill-card-images.mjs          # only rows with null image_url
+ *   node scripts/backfill-card-images.mjs --force  # refresh all catalogue rows
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { suggestCourseImageUrl, suggestJobImageUrl } from "../src/lib/card-images.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const envPath = resolve(root, ".env");
+if (!existsSync(envPath)) {
+  console.error("Missing .env — cannot connect to Supabase.");
+  process.exit(1);
+}
+
 const env = Object.fromEntries(
-  readFileSync(resolve(root, ".env"), "utf8")
+  readFileSync(envPath, "utf8")
     .split("\n")
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
     .map((l) => {
@@ -24,34 +34,11 @@ const supabase = createClient(
   env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Dupliqué minimal depuis card-images (évite import TS en .mjs)
-const U = (id, w = 800, h = 450) =>
-  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
+const force = process.argv.includes("--force");
 
-const COURSE_TITLE_IMAGES = {
-  "Parcours Full-Stack JavaScript": U("1498050108023-c5249f4df085"),
-  "Fondamentaux PostgreSQL & SQL": U("1544383835-bda2bc66a55d"),
-  "Docker & déploiement cloud": U("1667372393119-3d45c210fb22"),
-};
-
-function suggestCourse(title, skills) {
-  if (COURSE_TITLE_IMAGES[title]) return COURSE_TITLE_IMAGES[title];
-  const hay = `${title} ${(skills || []).join(" ")}`.toLowerCase();
-  if (hay.includes("react") || hay.includes("javascript")) return U("1498050108023-c5249f4df085");
-  if (hay.includes("sql")) return U("1544383835-bda2bc66a55d");
-  if (hay.includes("docker") || hay.includes("devops")) return U("1667372393119-3d45c210fb22");
-  return U("1501504905252-467f863fbef4");
-}
-
-function suggestJob(title, company, keywords) {
-  const hay = `${title} ${company} ${(keywords || []).join(" ")}`.toLowerCase();
-  if (hay.includes("react") || hay.includes("frontend")) return U("1461747286884-dccba6302f2e");
-  if (hay.includes("devops") || hay.includes("docker")) return U("1451187580459-43490279c0fa");
-  if (hay.includes("machine learning") || hay.includes("python")) return U("1677442136019-21780ecad995");
-  return U("1497366216548-37526070297c");
-}
-
-const { data: courses, error: cErr } = await supabase.from("courses").select("id,title,skills_targeted,image_url");
+const { data: courses, error: cErr } = await supabase
+  .from("courses")
+  .select("id,title,skills_targeted,image_url");
 if (cErr) {
   console.error("courses:", cErr.message);
   process.exit(1);
@@ -59,8 +46,11 @@ if (cErr) {
 
 let courseUpdates = 0;
 for (const c of courses ?? []) {
-  if (c.image_url) continue;
-  const url = suggestCourse(c.title, c.skills_targeted);
+  if (!force && c.image_url) continue;
+
+  const url = suggestCourseImageUrl(c.title, c.skills_targeted ?? []);
+  if (!force && c.image_url === url) continue;
+
   const { error } = await supabase.from("courses").update({ image_url: url }).eq("id", c.id);
   if (!error) courseUpdates++;
 }
@@ -75,10 +65,13 @@ if (jErr) {
 
 let jobUpdates = 0;
 for (const j of jobs ?? []) {
-  if (j.image_url) continue;
-  const url = suggestJob(j.position_title, j.company_name, j.keywords);
+  if (!force && j.image_url) continue;
+
+  const url = suggestJobImageUrl(j.position_title, j.company_name, j.keywords ?? []);
+  if (!force && j.image_url === url) continue;
+
   const { error } = await supabase.from("jobs").update({ image_url: url }).eq("id", j.id);
   if (!error) jobUpdates++;
 }
 
-console.log(`✅ Backfill: ${courseUpdates} formations, ${jobUpdates} offres`);
+console.log(`✅ Backfill (${force ? "force" : "null-only"}): ${courseUpdates} formations, ${jobUpdates} offres`);

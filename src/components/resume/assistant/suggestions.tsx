@@ -49,7 +49,7 @@ function WorkExperienceSuggestion({ content: work, currentContent: currentWork }
           </p>
         </div>
         <span className={cn(
-          "text-[10px] text-gray-600",
+          "text-xs text-gray-600",
           !currentWork || currentWork.date !== work.date && DIFF_HIGHLIGHT_CLASSES
         )}>
           {work.date}

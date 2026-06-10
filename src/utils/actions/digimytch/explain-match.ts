@@ -7,8 +7,8 @@ import {
   finishAIUsageRequest,
   startAIUsageRequest,
 } from "@/lib/ai/usage-ledger";
-import { getSubscriptionPlan } from "@/utils/actions/stripe/actions";
 import { hashJobListing } from "@/lib/job-analysis-cache";
+import { friendlyAIErrorMessage, getAIPlanState, resolveTaskModel } from "@/lib/ai/plan";
 
 const CACHE_TTL_HOURS = 24;
 
@@ -54,13 +54,14 @@ export async function explainJobMatch(jobId: string): Promise<ExplainMatchResult
       }
     }
 
-    const { plan, id: userId } = await getSubscriptionPlan(true);
-    const isPro = plan === "pro";
+    const { isPro, userId } = await getAIPlanState();
+    const modelId = resolveTaskModel("matching", isPro);
 
     const { model, usageEventId } = await startAIUsageRequest({
       route: "digimytch/explain-match",
-      userId: userId ?? "",
+      userId,
       isPro,
+      config: { model: modelId, apiKeys: [] },
     });
 
     const prompt = [
@@ -92,17 +93,17 @@ export async function explainJobMatch(jobId: string): Promise<ExplainMatchResult
       return { ok: false, error: "Réponse vide de l'assistant." };
     }
 
-    await supabase.from("job_analysis_cache").upsert({
-      job_hash: jobHash,
-      analysis: explanation,
-    });
+    await supabase
+      .from("job_analysis_cache")
+      .upsert({ job_hash: jobHash, analysis: explanation })
+      .then(({ error }) => {
+        if (error && process.env.NODE_ENV === "development") {
+          console.warn("[explainJobMatch] cache upsert skipped:", error.message);
+        }
+      });
 
     return { ok: true, explanation };
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Impossible de générer l'explication pour le moment.";
-    return { ok: false, error: message };
+    return { ok: false, error: friendlyAIErrorMessage(error) };
   }
 }

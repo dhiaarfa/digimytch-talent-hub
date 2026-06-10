@@ -60,7 +60,7 @@ export function SecurityForm({ user }: SecurityFormProps) {
         return;
       }
       
-      toast.success("Password updated successfully");
+      toast.success("Mot de passe mis à jour. Vous restez connecté avec la nouvelle session.");
       setCurrentPassword("");
       setNewPassword("");
     } catch {

@@ -74,6 +74,13 @@ export const RESUME_LABELS_FR = {
   emptySection: "vide",
   copyBaseResume: "Copier le CV de base",
   leaveWithoutSaving: "Quitter sans enregistrer",
+  saveAndLeave: "Enregistrer et quitter",
+  unsavedChangesDescription:
+    "Vous avez des modifications non enregistrées. Que souhaitez-vous faire avant de quitter cette page ?",
+  discardDraftTitle: "Abandonner ?",
+  discardDraftDescription:
+    "Les informations saisies seront perdues si vous fermez maintenant.",
+  discard: "Abandonner",
   clearChatHistoryTitle: "Effacer l'historique du chat",
   clearChatHistoryDesc:
     "Toutes les conversations avec l'assistant seront supprimées. Cette action est irréversible.",

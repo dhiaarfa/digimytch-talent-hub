@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Digimytch Job Clipper",
+  "description": "Enregistrez une offre d'emploi depuis n'importe quelle page vers votre Kanban Digimytch Talent Hub.",
+  "version": "1.0.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Digimytch Clipper",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage", "activeTab", "cookies", "scripting"],
+  "host_permissions": [
+    "http://localhost:3001/*",
+    "http://localhost:3000/*",
+    "https://digimytch-talent-hub.vercel.app/*",
+    "https://*.linkedin.com/*",
+    "https://*.indeed.com/*",
+    "https://*.indeed.fr/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html"
+}

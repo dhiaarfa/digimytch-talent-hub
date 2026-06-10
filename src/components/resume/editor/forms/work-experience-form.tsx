@@ -472,7 +472,7 @@ export const WorkExperienceForm = memo(function WorkExperienceFormComponent({
                   <div className="absolute -top-2 left-2 px-1 bg-white/80 text-[7px] sm:text-[9px] font-medium text-gray-500">
                     DATE
                   </div>
-                  <span className="ml-2 text-[8px] sm:text-[10px] text-gray-500">Use &apos;Present&apos; in the date field for current positions</span>
+                  <span className="ml-2 text-xs sm:text-xs text-gray-500">Use &apos;Present&apos; in the date field for current positions</span>
                 </div>
 
                 {/* Description Section */}
@@ -520,7 +520,7 @@ export const WorkExperienceForm = memo(function WorkExperienceFormComponent({
 
                           {improvedPoints[index]?.[descIndex] && (
                             <div className="absolute -top-2.5 right-12 px-2 py-0.5 bg-purple-100 rounded-full">
-                              <span className="text-[10px] font-medium text-purple-600 flex items-center gap-1">
+                              <span className="text-xs font-medium text-purple-600 flex items-center gap-1">
                                 <Sparkles className="h-3 w-3" />
                                 {L.aiSuggestion}
                               </span>
@@ -678,7 +678,7 @@ export const WorkExperienceForm = memo(function WorkExperienceFormComponent({
                         onChange(updated);
                       }}
                       className={cn(
-                        "flex-1 text-cyan-600 hover:text-cyan-700 transition-colors text-[10px] sm:text-xs",
+                        "flex-1 text-cyan-600 hover:text-cyan-700 transition-colors text-xs sm:text-xs",
                         "border-cyan-200 hover:border-cyan-300 hover:bg-cyan-50/50"
                       )}
                     >

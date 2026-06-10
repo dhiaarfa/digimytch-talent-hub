@@ -19,7 +19,9 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/ui/logo";
 import { WholeResumeSuggestion } from './suggestions';
+import { CoverLetterSuggestion } from './cover-letter-suggestion';
 import { QuickSuggestions } from './quick-suggestions';
+import { normalizeCoverLetterContent } from '@/lib/cover-letter-html';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import {
   AlertDialog,
@@ -37,11 +39,15 @@ import { resumeLabels, tResume } from "@/lib/resume-labels";
 import { Textarea } from '@/components/ui/textarea';
 import { useApiKeys, useDefaultModel } from '@/hooks/use-api-keys';
 import { useCustomPrompts } from '@/hooks/use-custom-prompts';
+import { selectBestModelForTask } from '@/lib/ai-models';
+import { normalizeDigimytchOpenRouterModelId } from '@/lib/digimytch-openrouter-models';
 
 interface ChatBotProps {
   resume: Resume;
   onResumeChange: (field: keyof Resume, value: Resume[typeof field]) => void;
   job?: Job | null;
+  /** Letter editor: same agent, cover-letter tools + accept/reject */
+  variant?: 'resume' | 'letter';
 }
 
 function ScrollToBottom() {
@@ -66,7 +72,18 @@ function ScrollToBottom() {
   );
 }
 
-export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
+function getCoverLetterHtml(resume: Resume): string {
+  const raw = resume.cover_letter?.content;
+  return typeof raw === 'string' ? raw : '';
+}
+
+export default function ChatBot({
+  resume,
+  onResumeChange,
+  job,
+  variant = 'resume',
+}: ChatBotProps) {
+  const isLetter = variant === 'letter';
   const L = resumeLabels();
   const router = useRouter();
   const [accordionValue, setAccordionValue] = React.useState<string>("");
@@ -75,6 +92,10 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
   const { apiKeys } = useApiKeys();
   const { defaultModel } = useDefaultModel();
   const { customPrompts } = useCustomPrompts();
+
+  const chatModel = normalizeDigimytchOpenRouterModelId(
+    defaultModel || selectBestModelForTask("chat")
+  );
   
   const [originalResume, setOriginalResume] = React.useState<Resume | null>(null);
   const [isInitialLoading, setIsInitialLoading] = React.useState(false);
@@ -83,18 +104,20 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
 
   const config = {
-    model: defaultModel,
+    model: chatModel,
     apiKeys,
     customPrompts: Object.keys(customPrompts).length > 0 ? customPrompts : undefined,
   };
   
   const { messages, error, append, isLoading, addToolResult, stop, setMessages } = useChat({
     api: withBasePath('/api/chat'),
+    credentials: 'same-origin',
     body: {
       target_role: resume.target_role,
       resume: resume,
       config,
       job: job,
+      ...(isLetter ? { focus: 'cover_letter' as const } : {}),
     },
     maxSteps: 5,
     onResponse() {
@@ -137,7 +160,7 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
             }), {});
         
         addToolResult({ toolCallId: toolCall.toolCallId, result });
-        console.log('Tool call READ RESUME result:', result);
+        if (process.env.NODE_ENV === 'development') console.debug('Tool call READ RESUME result:', result);
         return result;
       }
 
@@ -154,6 +177,26 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
       }
 
       if (toolCall.toolName === 'suggest_education_improvement') {
+        return toolCall.args;
+      }
+
+      if (toolCall.toolName === 'getCoverLetter') {
+        const html = getCoverLetterHtml(resume);
+        const result = {
+          content: html,
+          job: job
+            ? {
+                position_title: job.position_title,
+                company_name: job.company_name,
+                description: job.description?.slice(0, 4000) ?? '',
+              }
+            : null,
+        };
+        addToolResult({ toolCallId: toolCall.toolCallId, result });
+        return result;
+      }
+
+      if (toolCall.toolName === 'suggest_cover_letter_improvement') {
         return toolCall.args;
       }
 
@@ -260,14 +303,12 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
   return (
     <Card className={cn(
       "flex flex-col w-full l mx-auto",
-      "bg-gradient-to-br from-purple-400/20 via-purple-400/50 to-indigo-400/50",
-      "border-2 border-purple-200/60",
-      "shadow-lg shadow-purple-500/5",
-      "transition-all duration-500",
-      "hover:shadow-xl hover:shadow-purple-500/10",
-      "overflow-hidden",
-      "relative",
-      "data-[state=closed]:shadow-md data-[state=closed]:border data-[state=closed]:border-purple-200/40 "
+      isLetter
+        ? "bg-gradient-to-br from-amber-100/40 via-amber-50/80 to-orange-50/50 border-2 border-amber-200/70 shadow-lg shadow-amber-500/5 hover:shadow-xl hover:shadow-amber-500/10"
+        : "bg-gradient-to-br from-purple-400/20 via-purple-400/50 to-indigo-400/50 border-2 border-purple-200/60 shadow-lg shadow-purple-500/5 hover:shadow-xl hover:shadow-purple-500/10",
+      "transition-all duration-500 overflow-hidden relative",
+      "data-[state=closed]:shadow-md",
+      isLetter ? "data-[state=closed]:border-amber-200/40" : "data-[state=closed]:border-purple-200/40"
     )}>
       
 
@@ -374,10 +415,14 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
 
           {/* Accordion Content */}
           <AccordionContent className="space-y-4">
-            <StickToBottom className="h-[60vh] px-4 relative custom-scrollbar" resize="smooth" initial="smooth">
+            <StickToBottom
+              className={cn("px-4 relative custom-scrollbar", isLetter ? "h-[42vh]" : "h-[60vh]")}
+              resize="smooth"
+              initial="smooth"
+            >
               <StickToBottom.Content className="flex flex-col custom-scrollbar">
                 {messages.length === 0 ? (
-                  <QuickSuggestions onSuggestionClick={handleSubmit} />
+                  <QuickSuggestions onSuggestionClick={handleSubmit} variant={variant} />
                 ) : (
                   <>
                     {/* Messages */}
@@ -494,6 +539,15 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
                                       </div>
                                     ) : toolName.startsWith('suggest_') ? (
                                       <SuggestionSkeleton />
+                                    ) : toolName === 'getCoverLetter' ? (
+                                      <div
+                                        className={cn(
+                                          "rounded-2xl px-4 py-2 text-sm",
+                                          "bg-white/60 border border-amber-200/60 shadow-sm"
+                                        )}
+                                      >
+                                        Lecture de la lettre…
+                                      </div>
                                     ) : null}
                                     {toolName === 'displayWeather' ? (
                                       <div>Loading weather...</div>
@@ -504,6 +558,48 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
 
                             case 'result':
                               // Map tool names to resume sections and handle suggestions
+                              if (toolName === 'getCoverLetter') {
+                                return (
+                                  <div key={toolCallId} className="mt-2 w-[90%]">
+                                    <div
+                                      className={cn(
+                                        "rounded-2xl px-4 py-2 text-sm",
+                                        "bg-white/60 border border-amber-200/60"
+                                      )}
+                                    >
+                                      Lettre lue ✅
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (toolName === 'suggest_cover_letter_improvement') {
+                                const improved = (args as { improved_content?: string })
+                                  .improved_content;
+                                if (!improved) return null;
+                                return (
+                                  <div key={toolCallId} className="mt-2 w-full max-w-full">
+                                    <CoverLetterSuggestion
+                                      improvedContent={improved}
+                                      currentContent={getCoverLetterHtml(resume)}
+                                      onAccept={() => {
+                                        const html = normalizeCoverLetterContent(improved);
+                                        onResumeChange('cover_letter', {
+                                          ...(typeof resume.cover_letter === 'object' &&
+                                          resume.cover_letter
+                                            ? resume.cover_letter
+                                            : {}),
+                                          content: html,
+                                          lastUpdated: new Date().toISOString(),
+                                        });
+                                        onResumeChange('has_cover_letter', true);
+                                      }}
+                                      onReject={() => {}}
+                                    />
+                                  </div>
+                                );
+                              }
+
                               const toolConfig = {
                                 suggest_work_experience_improvement: {
                                   type: 'work_experience' as const,

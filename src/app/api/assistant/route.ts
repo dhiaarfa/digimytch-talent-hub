@@ -1,107 +1,135 @@
+import { logger } from '@/lib/logger';
 import { streamText, generateText, type LanguageModelV1 } from "ai";
-import { getSubscriptionPlan } from "@/utils/actions/stripe/actions";
-import { selectBestModelForTask } from "@/lib/ai-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { z } from "zod";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import {
   AIUsageError,
   finishAIUsageRequest,
   startAIUsageRequest,
 } from "@/lib/ai/usage-ledger";
+import { getAIPlanState, resolveTaskModel, friendlyAIErrorMessage } from "@/lib/ai/plan";
+import {
+  getDigimytchModelFallbackChain,
+  isOpenRouterModelNotFoundError,
+} from "@/lib/digimytch-openrouter-models";
 
-type AssistantMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
+export const maxDuration = 120;
 
-type AssistantRequest = {
-  messages: AssistantMessage[];
-  system?: string;
-  model?: string;
-  maxTokens?: number;
-  stream?: boolean;
-};
+const MAX_MESSAGE_CONTENT = 8_000;
+const MAX_MESSAGES = 40;
+
+const messageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(MAX_MESSAGE_CONTENT),
+});
+
+const requestSchema = z.object({
+  messages: z.array(messageSchema).min(1).max(MAX_MESSAGES),
+  system: z.string().max(4_000).optional(),
+  model: z.string().max(120).optional(),
+  maxTokens: z.number().int().min(1).max(2_000).optional().default(300),
+  stream: z.boolean().optional().default(true),
+});
 
 export async function POST(req: Request) {
+  let body: z.infer<typeof requestSchema>;
   try {
-    const body = (await req.json()) as AssistantRequest;
-    const { messages, system, maxTokens = 300, stream = true } = body;
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: "messages requis" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    const raw = await req.json();
+    const parsed = requestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return Response.json(
+        { error: "Requête invalide", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
+    body = parsed.data;
+  } catch {
+    return Response.json({ error: "Corps de requête invalide (JSON attendu)" }, { status: 400 });
+  }
 
-    const { plan, id } = await getSubscriptionPlan(true);
-    const isPro = isDigimytchTalentHub() ? true : plan === "pro";
-    const userId = id ?? "guest-assistant";
+  const { messages, system, maxTokens, stream } = body;
 
-    const modelId =
-      body.model ||
-      (isDigimytchTalentHub()
-        ? selectBestModelForTask("chat")
-        : selectBestModelForTask("chat"));
+  try {
+    const { isPro, userId } = await getAIPlanState();
+    const preferredModel = resolveTaskModel("chat", isPro, body.model);
+    const modelChain = IS_DIGIMYTCH_TALENT_HUB
+      ? getDigimytchModelFallbackChain(preferredModel)
+      : [preferredModel];
 
-    const { model, usageEventId } = await startAIUsageRequest({
-      userId,
-      route: "api.assistant",
-      config: { model: modelId, apiKeys: [] },
-      isPro,
-    });
+    let lastError: unknown;
 
-    if (stream) {
-      const result = streamText({
-        model: model as LanguageModelV1,
-        system: system ?? "Tu es l'assistant Digimytch Talent Hub.",
-        messages,
-        maxTokens,
-        onFinish: async ({ usage }) => {
-          await finishAIUsageRequest({
-            usageEventId,
-            status: "succeeded",
-            usage,
-          });
-        },
-        onError: async ({ error }) => {
-          await finishAIUsageRequest({
-            usageEventId,
-            status: "failed",
-            errorCode: error instanceof Error ? error.message : "stream_error",
-          });
-        },
+    for (let i = 0; i < modelChain.length; i++) {
+      const modelId = modelChain[i];
+      const route = i === 0 ? "api.assistant" : "api.assistant.model_fallback";
+
+      const { model, usageEventId } = await startAIUsageRequest({
+        userId,
+        route,
+        config: { model: modelId, apiKeys: [] },
+        isPro,
       });
 
-      return result.toTextStreamResponse();
+      try {
+        if (stream) {
+          const result = streamText({
+            model: model as LanguageModelV1,
+            system: system ?? "Tu es l'assistant Digimytch Talent Hub.",
+            messages,
+            maxTokens,
+            onFinish: async ({ usage }) => {
+              await finishAIUsageRequest({ usageEventId, status: "succeeded", usage });
+            },
+            onError: async ({ error }) => {
+              await finishAIUsageRequest({
+                usageEventId,
+                status: "failed",
+                errorCode: error instanceof Error ? error.message : "stream_error",
+              });
+            },
+          });
+          return result.toTextStreamResponse();
+        }
+
+        const { text, usage } = await generateText({
+          model: model as LanguageModelV1,
+          system: system ?? "Tu es l'assistant Digimytch Talent Hub.",
+          messages,
+          maxTokens,
+        });
+
+        await finishAIUsageRequest({ usageEventId, status: "succeeded", usage });
+        return Response.json({ text: text?.trim() ?? "" });
+      } catch (error) {
+        await finishAIUsageRequest({
+          usageEventId,
+          status: "failed",
+          errorCode: error instanceof Error ? error.message : "ai_request_failed",
+        });
+        lastError = error;
+        if (
+          IS_DIGIMYTCH_TALENT_HUB &&
+          isOpenRouterModelNotFoundError(error) &&
+          i < modelChain.length - 1
+        ) {
+          logger.warn(`[api/assistant] model ${modelId} failed, trying next`);
+          continue;
+        }
+        throw error;
+      }
     }
 
-    const { text, usage } = await generateText({
-      model: model as LanguageModelV1,
-      system: system ?? "Tu es l'assistant Digimytch Talent Hub.",
-      messages,
-      maxTokens,
-    });
-
-    await finishAIUsageRequest({
-      usageEventId,
-      status: "succeeded",
-      usage,
-    });
-
-    return Response.json({ text: text?.trim() ?? "" });
+    throw lastError ?? new Error("Assistant IA indisponible");
   } catch (error) {
-    console.error("[api/assistant]", error);
+    logger.error("[api/assistant]", error);
     if (error instanceof AIUsageError) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: error.status,
         headers: { "Content-Type": "application/json" },
       });
     }
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Erreur assistant",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+    return Response.json(
+      { error: friendlyAIErrorMessage(error) },
+      { status: 500 }
     );
   }
 }

@@ -3,6 +3,8 @@ import { afterEach, describe, it } from "node:test";
 
 import { resolveAIRequest } from "./access-control";
 
+const TEST_OPENROUTER_KEY = "sk-or-v1-" + "testserverkey".repeat(4);
+
 const originalEnv = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
@@ -17,7 +19,7 @@ afterEach(() => {
 
 describe("resolveAIRequest", () => {
   it("allows free users to use explicitly free server-key models", () => {
-    process.env.OPENROUTER_API_KEY = "server-openrouter";
+    process.env.OPENROUTER_API_KEY = TEST_OPENROUTER_KEY;
 
     const result = resolveAIRequest({
       requestedModel: "deepseek/deepseek-v3.2:nitro",
@@ -27,13 +29,13 @@ describe("resolveAIRequest", () => {
 
     assert.equal(result.providerId, "openrouter");
     assert.equal(result.modelId, "deepseek/deepseek-v3.2:nitro");
-    assert.equal(result.apiKey, "server-openrouter");
+    assert.equal(result.apiKey, TEST_OPENROUTER_KEY);
     assert.equal(result.usedServerKey, true);
     assert.equal(result.requiresRateLimit, true);
   });
 
   it("does not allow free users to force arbitrary slash-style OpenRouter models onto the server key", () => {
-    process.env.OPENROUTER_API_KEY = "server-openrouter";
+    process.env.OPENROUTER_API_KEY = TEST_OPENROUTER_KEY;
 
     assert.throws(
       () =>
@@ -102,7 +104,7 @@ describe("resolveAIRequest", () => {
   });
 
   it("reports server-key usage for every allowed server-key call", () => {
-    process.env.OPENROUTER_API_KEY = "server-openrouter";
+    process.env.OPENROUTER_API_KEY = TEST_OPENROUTER_KEY;
 
     const result = resolveAIRequest({
       requestedModel: "openai/gpt-5-nano",

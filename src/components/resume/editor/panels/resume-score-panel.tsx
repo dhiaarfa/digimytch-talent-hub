@@ -7,11 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, TrendingUp, Target, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useMemo } from "react";
-import { generateResumeScore } from "@/utils/actions/resumes/actions";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { withBasePath } from "@/lib/utils";
+import {
+  isHeuristicScoreMetrics,
+  stripJobForScoring,
+  stripResumeForScoring,
+} from "@/lib/resume-score-payload";
+import { friendlyAIErrorMessage } from "@/lib/ai/friendly-error";
 import { Resume, Job as JobType } from "@/lib/types";
 import { useApiKeys, useDefaultModel } from "@/hooks/use-api-keys";
 import { toast } from "@/hooks/use-toast";
+import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { selectBestModelForTask } from "@/lib/ai-models";
+import { buildHeuristicResumeScore } from "@/lib/resume-score-heuristic";
+import type { JobScoringInput } from "@/lib/resume-score-heuristic";
 
 export interface ResumeScoreMetrics {
   overallScore: {
@@ -77,7 +87,7 @@ export interface ResumeScoreMetrics {
     };
   };
 
-  miscellaneous: {
+  miscellaneous?: {
     [key: string]: {
       score: number;
       reason: string;
@@ -93,7 +103,13 @@ export interface ResumeScoreMetrics {
 interface ResumeScorePanelProps {
   resume: Resume;
   job?: JobType | null;
+  /** Clé localStorage (CV importé = adhoc-…) */
+  storageKey?: string;
+  labels?: "fr" | "en";
+  /** Lance l'analyse dès l'affichage si aucun score en cache */
+  autoGenerate?: boolean;
 }
+
 
 const LOCAL_STORAGE_KEY = 'resumelm-resume-scores';
 const MAX_SCORES = 10;
@@ -114,20 +130,11 @@ function camelCaseToReadable(text: string): string {
 }
 
 function getResumeForScoring(resume: Resume) {
-  return {
-    ...resume,
-    section_configs: undefined,
-    section_order: undefined
-  };
+  return stripResumeForScoring(resume);
 }
 
 function getJobForScoring(job?: JobType | null) {
-  if (!job) return null;
-
-  return {
-    ...job,
-    employment_type: job.employment_type || undefined
-  };
+  return stripJobForScoring(job ?? null);
 }
 
 function hashContent(content: string): string {
@@ -210,65 +217,187 @@ function updateStoredScores(resumeId: string, entry: StoredScoreEntry) {
   }
 }
 
-export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps) {
+const panelCopy = {
+  fr: {
+    modelRequired: "Sélectionnez un modèle IA dans Paramètres avant de générer le score.",
+    scoreFailed: "Analyse du score impossible",
+    emptyTitle: "Analyse du score CV",
+    emptyDesc: "Générez une analyse complète de la qualité de votre CV.",
+    generate: "Générer le score",
+    analyzing: "Analyse en cours…",
+    analyzingHint: "Maximum ~45 s — un score local est affiché si l'IA est lente.",
+    heuristicToast: "Score affiché (calcul local)",
+    heuristicToastDesc:
+      "L'analyse IA n'a pas abouti à temps. Le score reste utile ; vous pouvez recalculer pour réessayer l'IA.",
+    title: "Analyse du score CV",
+    recalc: "Recalculer",
+    overall: "Score global",
+    improvements: "Axes d'amélioration",
+    jobImprovements: "Améliorations pour l'offre",
+    jobAlignment: "Alignement avec l'offre",
+    completeness: "Complétude",
+    impact: "Impact",
+    roleMatch: "Adéquation au poste",
+  },
+  en: {
+    modelRequired: "Select an AI model before generating a resume score.",
+    scoreFailed: "Resume score failed",
+    emptyTitle: "Resume Score Analysis",
+    emptyDesc: "Generate a comprehensive analysis of your resume's effectiveness.",
+    generate: "Generate Score",
+    analyzing: "Analyzing...",
+    analyzingHint: "Up to ~45s — a local score is shown if AI is slow.",
+    heuristicToast: "Score displayed (local calculation)",
+    heuristicToastDesc:
+      "AI analysis did not finish in time. The score is still useful; tap Recalculate to retry AI.",
+    title: "Resume Score Analysis",
+    recalc: "Recalculate",
+    overall: "Overall Score",
+    improvements: "Key Improvements",
+    jobImprovements: "Job-Specific Improvements",
+    jobAlignment: "Job Alignment Analysis",
+    completeness: "Completeness",
+    impact: "Impact Score",
+    roleMatch: "Role Match",
+  },
+} as const;
+
+export default function ResumeScorePanel({
+  resume,
+  job,
+  storageKey,
+  labels = "en",
+  autoGenerate = false,
+}: ResumeScorePanelProps) {
+  const copy = panelCopy[labels];
+  const scoreStoreId = storageKey ?? resume.id;
   const { apiKeys } = useApiKeys();
   const { defaultModel } = useDefaultModel();
-  const selectedModel = useMemo(() => defaultModel, [defaultModel]);
+  const scoringModel = useMemo(() => {
+    if (defaultModel?.trim()) return defaultModel;
+    if (isDigimytchTalentHub()) return selectBestModelForTask("cv");
+    return "";
+  }, [defaultModel]);
   const scoreSignature = useMemo(
-    () => createScoreSignature(resume, job, selectedModel),
-    [resume, job, selectedModel]
+    () => createScoreSignature(resume, job, scoringModel),
+    [resume, job, scoringModel]
   );
   const [isCalculating, setIsCalculating] = useState(false);
+  const autoStartedRef = useRef(false);
   const [scoreData, setScoreData] = useState<ResumeScoreMetrics | null>(() => {
-    return getStoredScores(resume.id, scoreSignature);
+    return getStoredScores(scoreStoreId, scoreSignature);
   });
 
   useEffect(() => {
-    const storedScore = getStoredScores(resume.id, scoreSignature);
+    const storedScore = getStoredScores(scoreStoreId, scoreSignature);
     setScoreData(storedScore);
-  }, [resume.id, scoreSignature]);
+    autoStartedRef.current = false;
+  }, [scoreStoreId, scoreSignature]);
 
-  const handleRecalculate = async () => {
-    if (!selectedModel) {
+  const handleRecalculate = useCallback(async () => {
+    if (!scoringModel) {
       toast({
-        title: "Model required",
-        description: "Select an AI model before generating a resume score.",
+        title: labels === "fr" ? "Modèle requis" : "Model required",
+        description: copy.modelRequired,
         variant: "destructive",
       });
       return;
     }
 
     setIsCalculating(true);
+
+    if (isDigimytchTalentHub()) {
+      const preview = buildHeuristicResumeScore(
+        getResumeForScoring(resume),
+        getJobForScoring(job) as JobScoringInput | null
+      );
+      setScoreData(preview as ResumeScoreMetrics);
+    }
+
+    const timeoutWarning = window.setTimeout(() => {
+      toast({
+        title: copy.analyzing,
+        description: copy.analyzingHint,
+      });
+    }, 12_000);
+
     try {
-      // Call the generateResumeScore action with current resume
-      const newScore = await generateResumeScore(getResumeForScoring(resume), getJobForScoring(job), {
-        model: selectedModel,
-        apiKeys,
+      const response = await fetch(withBasePath("/api/resume-score"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          resume: getResumeForScoring(resume),
+          job: getJobForScoring(job),
+          model: scoringModel,
+          apiKeys,
+        }),
       });
 
-      // Update state and storage
-      const scoreMetrics = newScore as ResumeScoreMetrics;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        const snippet = (await response.text()).slice(0, 120);
+        throw new Error(
+          snippet.startsWith("<!")
+            ? "Session expirée ou erreur serveur — rechargez la page."
+            : snippet || `Erreur HTTP ${response.status}`
+        );
+      }
+
+      const payload = (await response.json()) as {
+        score?: ResumeScoreMetrics;
+        error?: string;
+        source?: string;
+      };
+
+      if (!response.ok || !payload.score) {
+        throw new Error(payload.error ?? copy.scoreFailed);
+      }
+
+      const scoreMetrics = payload.score;
       setScoreData(scoreMetrics);
-      updateStoredScores(resume.id, {
+      updateStoredScores(scoreStoreId, {
         score: scoreMetrics,
         signature: scoreSignature,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
       });
+
+      if (payload.source === "heuristic" || isHeuristicScoreMetrics(scoreMetrics)) {
+        toast({
+          title: copy.heuristicToast,
+          description: copy.heuristicToastDesc,
+        });
+      }
     } catch (error) {
       console.error("Error generating score:", error);
-      const description = error instanceof Error
-        ? `${error.message} Check your model selection and API keys in Settings, then try again.`
-        : "Failed to generate resume score. Check your model selection and API keys in Settings, then try again.";
-
       toast({
-        title: "Resume score failed",
-        description,
+        title: copy.scoreFailed,
+        description: friendlyAIErrorMessage(error),
         variant: "destructive",
       });
     } finally {
+      clearTimeout(timeoutWarning);
       setIsCalculating(false);
     }
-  };
+  }, [
+    scoringModel,
+    apiKeys,
+    resume,
+    job,
+    scoreStoreId,
+    scoreSignature,
+    copy,
+    labels,
+  ]);
+
+  useEffect(() => {
+    if (!autoGenerate || scoreData || isCalculating || autoStartedRef.current) {
+      return;
+    }
+    if (!scoringModel) return;
+    autoStartedRef.current = true;
+    void handleRecalculate();
+  }, [autoGenerate, scoreData, isCalculating, scoringModel, handleRecalculate]);
 
   // If no score data is available, show the empty state
   if (!scoreData) {
@@ -280,13 +409,14 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
               <TrendingUp className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold mb-2">Resume Score Analysis</h3>
-                             <p className="text-sm text-muted-foreground mb-4">
-                 Generate a comprehensive analysis of your resume&apos;s effectiveness
-               </p>
+              <h3 className="font-semibold mb-2">{copy.emptyTitle}</h3>
+              <p className="text-sm text-muted-foreground mb-2">{copy.emptyDesc}</p>
+              {isCalculating && (
+                <p className="text-xs text-muted-foreground mb-4">{copy.analyzingHint}</p>
+              )}
               <Button
-                onClick={handleRecalculate}
-                disabled={isCalculating}
+                onClick={() => void handleRecalculate()}
+                disabled={isCalculating || !scoringModel}
                 className="w-full sm:w-auto"
               >
                 <RefreshCw 
@@ -295,7 +425,7 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
                     isCalculating && "animate-spin"
                   )} 
                 />
-                {isCalculating ? "Analyzing..." : "Generate Score"}
+                {isCalculating ? copy.analyzing : copy.generate}
               </Button>
             </div>
           </CardContent>
@@ -311,10 +441,10 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
     <div className="space-y-4">
       {/* Header with recalculate button */}
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Resume Score Analysis</h3>
+        <h3 className="text-lg font-semibold">{copy.title}</h3>
         <Button
-          onClick={handleRecalculate}
-          disabled={isCalculating}
+          onClick={() => void handleRecalculate()}
+          disabled={isCalculating || !scoringModel}
           variant="outline"
           size="sm"
         >
@@ -324,7 +454,7 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
               isCalculating && "animate-spin"
             )} 
           />
-          Recalculate
+          {copy.recalc}
         </Button>
       </div>
 
@@ -346,7 +476,7 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
               />
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium mb-1">Overall Score</h4>
+              <h4 className="font-medium mb-1">{copy.overall}</h4>
               <p className="text-sm text-muted-foreground">{scoreData.overallScore.reason}</p>
             </div>
           </div>
@@ -358,7 +488,7 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Target className="h-4 w-4" />
-            Key Improvements
+            {copy.improvements}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -385,7 +515,7 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 text-blue-700">
               <Award className="h-4 w-4" />
-              Job-Specific Improvements
+              {copy.jobImprovements}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -413,7 +543,7 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 text-blue-700">
               <Target className="h-4 w-4" />
-              Job Alignment Analysis
+              {copy.jobAlignment}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -428,9 +558,9 @@ export default function ResumeScorePanel({ resume, job }: ResumeScorePanelProps)
 
       {/* Detailed Metrics */}
       {Object.entries({
-        Completeness: { icon: Award, metrics: scoreData.completeness },
-        "Impact Score": { icon: TrendingUp, metrics: scoreData.impactScore },
-        "Role Match": { icon: Target, metrics: scoreData.roleMatch }
+        [copy.completeness]: { icon: Award, metrics: scoreData.completeness },
+        [copy.impact]: { icon: TrendingUp, metrics: scoreData.impactScore },
+        [copy.roleMatch]: { icon: Target, metrics: scoreData.roleMatch },
       }).map(([title, { icon: Icon, metrics }]) => (
         <Card key={title}>
           <CardHeader className="pb-3">

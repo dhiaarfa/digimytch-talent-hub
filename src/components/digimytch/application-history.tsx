@@ -52,6 +52,7 @@ export function ApplicationHistory({ applicationId }: { applicationId: string })
         variant="ghost"
         size="sm"
         className="h-8 gap-1 text-xs"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={loadHistory}
         disabled={status === "loading"}
       >

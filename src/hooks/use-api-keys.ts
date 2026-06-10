@@ -4,8 +4,9 @@ import { useSyncExternalStore, useCallback } from 'react'
 import {
   type ApiKey,
   DIGIMYTCH_AI_MODEL_STORAGE_KEY,
-  isDigimytchFreeModelId,
+  selectBestModelForTask,
 } from '@/lib/ai-models'
+import { normalizeDigimytchOpenRouterModelId } from '@/lib/digimytch-openrouter-models'
 import { isDigimytchTalentHub } from '@/lib/digimytch-config'
 
 // Storage keys - must match existing keys for backwards compatibility
@@ -83,15 +84,21 @@ function readStoredModel(): string {
   if (typeof window === 'undefined') return EMPTY_MODEL
   if (isDigimytchTalentHub()) {
     const digi = localStorage.getItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY)
-    if (digi && isDigimytchFreeModelId(digi)) return digi
+    if (digi) return normalizeDigimytchOpenRouterModelId(digi)
+    const legacy = localStorage.getItem(MODEL_STORAGE_KEY)
+    if (legacy) return normalizeDigimytchOpenRouterModelId(legacy)
+    return selectBestModelForTask('chat')
   }
   return localStorage.getItem(MODEL_STORAGE_KEY) ?? EMPTY_MODEL
 }
 
 function persistModelChoice(model: string) {
-  localStorage.setItem(MODEL_STORAGE_KEY, model)
-  if (isDigimytchTalentHub() && isDigimytchFreeModelId(model)) {
-    localStorage.setItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY, model)
+  const normalized = isDigimytchTalentHub()
+    ? normalizeDigimytchOpenRouterModelId(model)
+    : model
+  localStorage.setItem(MODEL_STORAGE_KEY, normalized)
+  if (isDigimytchTalentHub()) {
+    localStorage.setItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY, normalized)
   }
 }
 

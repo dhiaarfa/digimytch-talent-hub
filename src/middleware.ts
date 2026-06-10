@@ -13,9 +13,10 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - api/webhooks (webhook endpoints)
+     * - api/jobs/clip (Chrome extension Bearer auth)
      * - image files (svg, png, jpg, etc.)
      * Run on all other routes to protect them
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next|favicon.ico|api/webhooks|api/openrouter|api/jobs/clip|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

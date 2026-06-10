@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { ViewModeToggle, type ViewMode } from "@/components/ui/view-mode-toggle";
 import { CourseCard } from "@/components/digimytch/course-card";
+import { SkillGapChips } from "@/components/digimytch/skill-gap-chips";
 
 type RankedItem = {
   course: Course;
@@ -40,6 +41,7 @@ export function FormationsHub({ courses, ranked, gapUnion }: FormationsHubProps)
   const [level, setLevel] = useState<string>("all");
   const [provider, setProvider] = useState<string>("all");
   const [showRecommendedOnly, setShowRecommendedOnly] = useState(false);
+  const [showDigimytchOnly, setShowDigimytchOnly] = useState(false);
   const [skillFilter, setSkillFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
@@ -71,14 +73,15 @@ export function FormationsHub({ courses, ranked, gapUnion }: FormationsHubProps)
     const q = search.trim().toLowerCase();
     return uniqueCourses.filter((c) => {
       if (showRecommendedOnly && !recommendedIds.has(c.id)) return false;
+      if (showDigimytchOnly && !c.is_digimytch) return false;
       if (level !== "all" && c.level !== level) return false;
       if (provider !== "all" && c.provider !== provider) return false;
       if (skillFilter !== "all" && !c.skills_targeted.includes(skillFilter)) return false;
       if (!q) return true;
-      const hay = `${c.title} ${c.provider} ${c.skills_targeted.join(" ")}`.toLowerCase();
+      const hay = `${c.title} ${c.provider} ${c.institution ?? ""} ${c.skills_targeted.join(" ")}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [uniqueCourses, search, level, provider, skillFilter, showRecommendedOnly, recommendedIds]);
+  }, [uniqueCourses, search, level, provider, skillFilter, showRecommendedOnly, showDigimytchOnly, recommendedIds]);
 
   const topRanked = ranked.filter((r) => r.overlap > 0).slice(0, 6);
   const priorityIds = useMemo(() => new Set(topRanked.map((r) => r.course.id)), [topRanked]);
@@ -95,10 +98,12 @@ export function FormationsHub({ courses, ranked, gapUnion }: FormationsHubProps)
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Écarts de compétences détectés</CardTitle>
             <CardDescription>
-              {gapUnion.slice(0, 24).join(", ")}
-              {gapUnion.length > 24 ? "…" : ""}
+              Compétences à renforcer d&apos;après vos offres analysées — formations recommandées ci-dessous.
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <SkillGapChips skills={gapUnion} />
+          </CardContent>
         </Card>
       )}
 
@@ -155,6 +160,15 @@ export function FormationsHub({ courses, ranked, gapUnion }: FormationsHubProps)
           <label className="flex items-center gap-2 text-sm cursor-pointer px-1">
             <input
               type="checkbox"
+              checked={showDigimytchOnly}
+              onChange={(e) => setShowDigimytchOnly(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Formations Digimytch uniquement
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer px-1">
+            <input
+              type="checkbox"
               checked={showRecommendedOnly}
               onChange={(e) => setShowRecommendedOnly(e.target.checked)}
               className="rounded border-gray-300"
@@ -203,7 +217,7 @@ export function FormationsHub({ courses, ranked, gapUnion }: FormationsHubProps)
           <ul
             className={
               viewMode === "grid"
-                ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-2"
                 : "flex flex-col gap-3"
             }
           >

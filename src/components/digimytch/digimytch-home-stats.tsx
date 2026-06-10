@@ -7,11 +7,13 @@ import {
   BookOpen,
   Send,
   ArrowRight,
+  TrendingUp,
 } from "lucide-react";
-import { getCachedApplications, getCachedJobsWithMatch } from "@/lib/digimytch-queries";
-import { Card, CardContent } from "@/components/ui/card";
+import { getCachedQuickStats } from "@/lib/digimytch-queries";
 import { Button } from "@/components/ui/button";
+import { DigimytchGuidedTour } from "@/components/digimytch/digimytch-guided-tour";
 
+// ── KPI Card ─────────────────────────────────────────────────────────────────
 function KPICard({
   href,
   icon: Icon,
@@ -19,7 +21,7 @@ function KPICard({
   value,
   sub,
   urgent,
-  accent,
+  colorClass,
 }: {
   href: string;
   icon: typeof FileText;
@@ -27,34 +29,30 @@ function KPICard({
   value: string;
   sub: string;
   urgent?: boolean;
-  accent?: "navy" | "accent" | "orange" | "green";
+  colorClass: string;
 }) {
-  const colors = {
-    navy: "text-[var(--digi-navy)] bg-[var(--digi-navy)]/10",
-    accent: "text-[var(--digi-accent)] bg-[var(--digi-accent)]/10",
-    orange: "text-[var(--digi-orange)] bg-[var(--digi-orange)]/10",
-    green: "text-[var(--digi-green)] bg-[var(--digi-green)]/10",
-  };
-  const c = colors[accent ?? "navy"];
-
   return (
-    <Link href={href} className="block group">
-      <Card
-        className={`h-full transition-shadow hover:shadow-md border-[var(--digi-border)] ${urgent ? "ring-2 ring-[var(--digi-accent)]" : ""}`}
+    <Link href={href} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--digi-accent)] rounded-2xl">
+      <div
+        className={`h-full rounded-2xl border ${urgent ? "border-[var(--digi-accent)] shadow-md" : "border-[var(--digi-border)]"} bg-[var(--digi-card)] dark:bg-[var(--digi-card)] p-4 transition-all duration-200 group-hover:shadow-md group-hover:-translate-y-0.5 relative overflow-hidden`}
       >
-        <CardContent className="p-4">
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${c}`}>
-            <Icon className="h-5 w-5" aria-hidden />
-          </div>
-          <p className="text-xs text-[var(--digi-muted)]">{label}</p>
-          <p className="font-display font-bold text-xl text-[var(--digi-dark)] mt-0.5">{value}</p>
-          <p className="text-xs text-[var(--digi-muted)] mt-1">{sub}</p>
-        </CardContent>
-      </Card>
+        {urgent && (
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--digi-accent)] animate-pulse-ring" aria-hidden />
+        )}
+        <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl mb-3 ${colorClass}`}>
+          <Icon className="h-4.5 w-4.5" aria-hidden />
+        </div>
+        <p className="text-xs text-[var(--digi-muted)] font-medium mb-1">{label}</p>
+        <p className="font-display font-bold text-2xl text-[var(--digi-dark)] dark:text-[var(--digi-dark-fg)] leading-none mb-1">
+          {value}
+        </p>
+        <p className="text-xs text-[var(--digi-muted)] leading-snug">{sub}</p>
+      </div>
     </Link>
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export async function DigimytchHomeStats() {
   let jobsCount = 0;
   let avgScore: number | null = null;
@@ -63,88 +61,59 @@ export async function DigimytchHomeStats() {
   let gapSkillsCount = 0;
 
   try {
-    const [{ resume, jobsWithMatch }, apps] = await Promise.all([
-      getCachedJobsWithMatch(),
-      getCachedApplications(),
-    ]);
-    hasResume = Boolean(resume);
-    jobsCount = jobsWithMatch.length;
-    if (jobsWithMatch.length > 0) {
-      const sum = jobsWithMatch.reduce((a, j) => a + j.match.score, 0);
-      avgScore = Math.round(sum / jobsWithMatch.length);
+    const stats = await getCachedQuickStats();
+    if (stats) {
+      hasResume = stats.hasResume;
+      jobsCount = stats.jobsCount;
+      avgScore = stats.avgScore;
+      activeApplications = stats.activeApplications;
+      gapSkillsCount = stats.gapSkillsCount;
     }
-    const gaps = new Set<string>();
-    for (const { match } of jobsWithMatch) {
-      match.gapSkills.forEach((g) => gaps.add(g));
-      match.missingKeywords.forEach((g) => gaps.add(g));
-    }
-    gapSkillsCount = gaps.size;
-    activeApplications = apps.filter((a) => a.status !== "rejected" && a.status !== "accepted").length;
   } catch {
-    /* dashboard still renders */
+    /* dashboard still renders without stats */
   }
 
+  // Next action CTA
   const nextAction = !hasResume
-    ? {
-        icon: FileText,
-        title: "Créez votre premier CV",
-        desc: "L'assistant IA vous guidera section par section.",
-        cta: "Commencer",
-        link: "/resumes",
-      }
+    ? { icon: FileText, title: "Créez votre premier CV", desc: "L'assistant IA vous guidera section par section.", cta: "Commencer", link: "/resumes" }
+    : avgScore !== null && avgScore < 65
+      ? { icon: BarChart2, title: "Améliorez votre score CV", desc: `Score moyen ${avgScore}/100 — analysez et optimisez votre CV pour mieux matcher vos offres.`, cta: "Analyser mon CV", link: "/score-cv" }
     : jobsCount === 0
-      ? {
-          icon: Target,
-          title: "Analysez votre première offre",
-          desc: "Collez une offre d'emploi et découvrez votre score.",
-          cta: "Analyser une offre",
-          link: "/jobs",
-        }
+      ? { icon: Target, title: "Analysez votre première offre", desc: "Collez une offre LinkedIn ou Rekrute pour obtenir votre score.", cta: "Analyser une offre", link: "/jobs" }
       : activeApplications === 0
-        ? {
-            icon: Send,
-            title: "Suivez vos candidatures",
-            desc: "Ajoutez une offre analysée à Mes candidatures, puis faites avancer le statut.",
-            cta: "Voir mes offres analysées",
-            link: "/jobs",
-          }
-        : {
-            icon: BookOpen,
-            title: "Découvrez vos formations recommandées",
-            desc: `${gapSkillsCount} compétences à combler selon vos offres.`,
-            cta: "Voir les formations",
-            link: "/formations",
-          };
+        ? { icon: Send, title: "Suivez vos candidatures", desc: "Ajoutez une offre analysée à Mes candidatures.", cta: "Voir mes offres", link: "/jobs" }
+        : { icon: BookOpen, title: "Formations recommandées", desc: `${gapSkillsCount} compétences à renforcer selon vos offres.`, cta: "Voir les formations", link: "/formations" };
 
   const NextIcon = nextAction.icon;
 
   return (
-    <div className="space-y-6 mb-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="space-y-4 mb-6 animate-fade-in-up">
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour="home-kpis">
         <KPICard
           href="/resumes"
           icon={FileText}
           label="CV principal"
-          value={hasResume ? "Complété" : "À créer"}
-          sub={hasResume ? "CV de base actif" : "Commencer maintenant"}
+          value={hasResume ? "Actif" : "À créer"}
+          sub={hasResume ? "Prêt pour le matching" : "Commencez ici"}
           urgent={!hasResume}
-          accent="navy"
+          colorClass="bg-[#030A8C]/10 text-[#030A8C] dark:bg-[#030A8C]/20 dark:text-[#8fa0ff]"
         />
         <KPICard
           href="/jobs"
           icon={Target}
           label="Offres analysées"
           value={String(jobsCount)}
-          sub="annonces collées et scorées"
-          accent="accent"
+          sub="annonces scorées"
+          colorClass="bg-[#D10069]/10 text-[#D10069]"
         />
         <KPICard
           href="/jobs"
           icon={BarChart2}
           label="Score moyen"
-          value={avgScore !== null ? `${avgScore}/100` : "—"}
-          sub="sur vos offres analysées"
-          accent="orange"
+          value={avgScore !== null ? `${avgScore}` : "—"}
+          sub={avgScore !== null ? `sur 100 · ${avgScore >= 65 ? "Excellent" : avgScore >= 40 ? "Moyen" : "Faible"}` : "Aucune offre encore"}
+          colorClass="bg-amber-50 text-amber-600 dark:bg-amber-900/20"
         />
         <KPICard
           href="/candidatures"
@@ -152,25 +121,43 @@ export async function DigimytchHomeStats() {
           label="Candidatures actives"
           value={String(activeApplications)}
           sub="en cours de suivi"
-          accent="green"
+          colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20"
         />
       </div>
 
-      <div className="rounded-xl border border-[var(--digi-border)] border-l-4 border-l-[var(--digi-accent)] bg-[var(--digi-navy)]/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4 animate-fade-in-up">
-        <div className="flex gap-3 flex-1">
-          <NextIcon className="h-8 w-8 text-[var(--digi-accent)] shrink-0" aria-hidden />
-          <div>
-            <p className="text-xs font-semibold uppercase text-[var(--digi-muted)]">À faire maintenant</p>
-            <h3 className="font-display font-semibold text-[var(--digi-dark)]">{nextAction.title}</h3>
-            <p className="text-sm text-[var(--digi-muted)] mt-1">{nextAction.desc}</p>
+      {/* Next action hero */}
+      <div
+        data-tour="home-next-step"
+        className="w-full rounded-2xl border-2 border-[var(--digi-accent)]/30 bg-gradient-to-br from-[var(--digi-navy)]/8 via-white to-[var(--digi-accent)]/8 dark:from-[var(--digi-navy)]/15 dark:via-[var(--digi-card)] dark:to-[var(--digi-accent)]/10 p-6 sm:p-8 shadow-sm"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="flex gap-4 flex-1 min-w-0">
+            <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--digi-accent)]/20 to-[var(--digi-navy)]/10 flex items-center justify-center">
+              <NextIcon className="h-7 w-7 text-[var(--digi-accent)]" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--digi-muted)] mb-1 flex items-center gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5" aria-hidden />
+                Prochaine étape
+              </p>
+              <p className="font-display font-bold text-xl sm:text-2xl text-[var(--digi-dark)] dark:text-[var(--digi-dark-fg)] leading-tight">
+                {nextAction.title}
+              </p>
+              <p className="text-sm sm:text-base text-[var(--digi-muted)] mt-2 max-w-2xl leading-relaxed">
+                {nextAction.desc}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            <Button asChild size="lg" className="btn-digi-primary gap-2 text-base px-6 h-12">
+              <Link href={nextAction.link}>
+                {nextAction.cta}
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </Button>
+            <DigimytchGuidedTour />
           </div>
         </div>
-        <Button asChild className="btn-digi-primary shrink-0">
-          <Link href={nextAction.link} className="gap-2">
-            {nextAction.cta}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
       </div>
     </div>
   );

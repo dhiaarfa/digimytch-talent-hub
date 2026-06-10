@@ -1,59 +1,112 @@
 'use server';
 
 // import { RESUME_IMPORTER_SYSTEM_MESSAGE, } from "@/lib/prompts";
-import { Resume } from "@/lib/types";
-import { textImportSchema, workExperienceBulletPointsSchema } from "@/lib/zod-schemas";
-import { generateObject, type LanguageModelUsage, type LanguageModelV1 } from "ai";
+import { Resume, WorkExperience } from "@/lib/types";
+import { textImportSchema, workExperienceBulletPointsSchema, projectAnalysisSchema, workExperienceItemsSchema } from "@/lib/zod-schemas";
+import { generateObject } from "ai";
 import { z } from "zod";
 import { type AIConfig } from '@/utils/ai-tools';
-import { getSubscriptionPlan } from "@/utils/actions/stripe/actions";
-import { PROJECT_GENERATOR_MESSAGE, PROJECT_IMPROVER_MESSAGE, TEXT_ANALYZER_SYSTEM_MESSAGE, WORK_EXPERIENCE_GENERATOR_MESSAGE, WORK_EXPERIENCE_IMPROVER_MESSAGE } from "@/lib/prompts";
-import { projectAnalysisSchema, workExperienceItemsSchema } from "@/lib/zod-schemas";
-import { WorkExperience } from "@/lib/types";
-import { getDefaultModel } from "@/lib/ai-models";
-import {
-  finishAIUsageRequest,
-  logPromptInjectionAttempt,
-  startAIUsageRequest,
-} from "@/lib/ai/usage-ledger";
+import { PROJECT_GENERATOR_MESSAGE, PROJECT_IMPROVER_MESSAGE, TEXT_ANALYZER_SYSTEM_MESSAGE, WORK_EXPERIENCE_GENERATOR_MESSAGE, WORK_EXPERIENCE_IMPROVER_MESSAGE, CV_FULL_IMPORT_SYSTEM_MESSAGE } from "@/lib/prompts";
+import { getModelById, isDigimytchFreeModelId } from "@/lib/ai-models";
+import { logPromptInjectionAttempt } from "@/lib/ai/usage-ledger";
+import { runTrackedAIRequest } from "@/lib/ai/run-tracked-request";
 import { sanitizeForPrompt } from "@/lib/prompt-security";
+import {
+  parseResumeTextStructured,
+  type TextImportContent,
+} from "@/lib/resume-text-structured";
+import { isLocalDevMockAI } from "@/lib/ai/ci-mock-model";
+import { logger } from "@/lib/logger";
 
-async function getAIPlanState() {
-  const { plan, id } = await getSubscriptionPlan(true);
+import { getAIPlanState, resolveTaskModel } from "@/lib/ai/plan";
+
+function resolveImportModel(config: AIConfig | undefined, isPro: boolean): string {
+  const candidate = config?.model?.trim();
+  if (!candidate) return resolveTaskModel("cv", isPro);
+  if (getModelById(candidate) || isDigimytchFreeModelId(candidate)) return candidate;
+  return resolveTaskModel("cv", isPro);
+}
+
+function isLowQualityImport(content: TextImportContent): boolean {
+  const jobs = content.work_experience ?? [];
+  if (jobs.length !== 1) return false;
+  const only = jobs[0];
+  return (
+    /profil importé|import cv/i.test(only.position) ||
+    /import cv/i.test(only.company) ||
+    (only.description?.length ?? 0) > 25
+  );
+}
+
+function coalesceImportContent(
+  aiContent: TextImportContent,
+  structured: TextImportContent
+): TextImportContent {
+  const aiJobs = aiContent.work_experience?.length ?? 0;
+  const structJobs = structured.work_experience?.length ?? 0;
+
+  const work_experience =
+    isLowQualityImport(aiContent) || (structJobs > aiJobs && structJobs > 0)
+      ? structured.work_experience
+      : aiContent.work_experience?.length
+        ? aiContent.work_experience
+        : structured.work_experience;
+
   return {
-    isPro: plan === 'pro',
-    userId: id,
+    first_name: aiContent.first_name ?? structured.first_name,
+    last_name: aiContent.last_name ?? structured.last_name,
+    email: aiContent.email ?? structured.email,
+    phone_number: aiContent.phone_number ?? structured.phone_number,
+    location: aiContent.location ?? structured.location,
+    website: aiContent.website ?? structured.website,
+    linkedin_url: aiContent.linkedin_url ?? structured.linkedin_url,
+    github_url: aiContent.github_url ?? structured.github_url,
+    work_experience: work_experience ?? [],
+    education:
+      (aiContent.education?.length ?? 0) >= (structured.education?.length ?? 0)
+        ? aiContent.education
+        : structured.education,
+    skills:
+      (aiContent.skills?.length ?? 0) >= (structured.skills?.length ?? 0)
+        ? aiContent.skills
+        : structured.skills,
+    projects:
+      (aiContent.projects?.length ?? 0) >= (structured.projects?.length ?? 0)
+        ? aiContent.projects
+        : structured.projects,
   };
 }
 
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-    useThinking?: boolean;
-  },
-  task: (model: LanguageModelV1) => Promise<T>
-) {
-  const { model, usageEventId } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
+function mergeImportContent(
+  existingResume: Resume,
+  content: z.infer<typeof textImportSchema>
+): Resume {
+  return {
+    ...existingResume,
+    ...(content.first_name && { first_name: content.first_name }),
+    ...(content.last_name && { last_name: content.last_name }),
+    ...(content.email && { email: content.email }),
+    ...(content.phone_number && { phone_number: content.phone_number }),
+    ...(content.location && { location: content.location }),
+    ...(content.website && { website: content.website }),
+    ...(content.linkedin_url && { linkedin_url: content.linkedin_url }),
+    ...(content.github_url && { github_url: content.github_url }),
+    work_experience: [...existingResume.work_experience, ...(content.work_experience || [])],
+    education: [
+      ...existingResume.education,
+      ...(content.education || []).map((entry) => ({
+        school: entry.school,
+        degree: entry.degree,
+        field: entry.field ?? "",
+        date: entry.date ?? "",
+        ...(entry.location ? { location: entry.location } : {}),
+        ...(entry.gpa ? { gpa: entry.gpa } : {}),
+        ...(entry.achievements ? { achievements: entry.achievements } : {}),
+      })),
+    ],
+    skills: [...existingResume.skills, ...(content.skills || [])],
+    projects: [...existingResume.projects, ...(content.projects || [])],
+  };
 }
 
 // Base Resume Creation
@@ -68,130 +121,53 @@ export async function convertTextToResume(prompt: string, existingResume: Resume
       details: `removed=${sanitizedResumeInput.removedFragments},trimmed=${sanitizedResumeInput.wasTrimmed}`,
     });
   }
-  const fallbackModel = getDefaultModel(isPro);
+
+  const structuredBaseline = parseResumeTextStructured(sanitizedResumeInput.text);
+
+  if (isLocalDevMockAI()) {
+    return mergeImportContent(existingResume, structuredBaseline);
+  }
+
+  const modelId = resolveImportModel(config, isPro);
   const resolvedConfig: AIConfig = {
-    model: config?.model || fallbackModel,
+    model: modelId,
     apiKeys: config?.apiKeys || [],
-    ...(config?.customPrompts ? { customPrompts: config.customPrompts } : {})
+    ...(config?.customPrompts ? { customPrompts: config.customPrompts } : {}),
   };
 
-  let object: { content: z.infer<typeof textImportSchema> };
+  const structuredHint = JSON.stringify(structuredBaseline, null, 2).slice(0, 14_000);
+
   try {
     const result = await runTrackedAIRequest(
       {
-        route: 'actions.resumes.convertTextToResume',
+        route: "actions.resumes.convertTextToResume",
         userId,
         isPro,
         config: resolvedConfig,
         useThinking: isPro,
       },
-      (aiClient) => generateObject({
-        model: aiClient,
-        schema: z.object({
-          content: textImportSchema
-        }),
-        system: `You are ResumeFormatter, an expert system specialized in analyzing complete resumes and converting them into a structured JSON object tailored for targeted job applications.
-
-        Your task is to transform the complete resume text into a JSON object according to the provided schema. You will identify and extract the most relevant experiences, skills, projects, and educational background based on the target role. While doing so, you are allowed to make minimal formatting changes only to enhance clarity and highlight relevance—**do not reword, summarize, or alter the core details of any content.**
-
-        CRITICAL DIRECTIVES:
-        1. **Analysis & Selection:**
-          - Analyze the full resume text that includes all user experiences, skills, projects, and education.
-          - Identify the items that best match the target role: ${targetRole}.
-          - Always include the education section:
-            - If only one educational entry exists, include it.
-            - If multiple entries exist, select the one(s) most relevant to the target role.
-
-        2. **Formatting & Emphasis:**
-          - Transform the resume into a JSON object following the schema, with sections such as basic information, professional experience, projects, skills, and education.
-          - Preserve all original details, dates, and descriptions. Only modify the text for formatting purposes.
-          - **Enhance relevance by marking keywords** within work experience descriptions, project details, achievements, and education details with bold formatting (i.e., wrap them with two asterisks like **this**). Apply this only to keywords or phrases that are highly relevant to the target role.
-          - Do not add any formatting to section titles or headers.
-          - Use empty arrays ([]) for any sections that do not contain relevant items.
-
-        3. **Output Requirements:**
-          - The final output must be a valid JSON object that adheres to the specified schema.
-          - Include only the most relevant items, optimized for the target role.
-          - Do not add any new information or rephrase the provided content—only apply minor formatting (like bolding) to emphasize key points.
-        `,
-        prompt: `INPUT:
-    Extract and transform the resume information from the following text:
-    ${sanitizedResumeInput.text}
-    Now, format this information into the JSON object according to the schema, ensuring it is optimized for the target role: ${targetRole}.`,
-      })
-    );
-    object = result.object;
-  } catch (error) {
-    if (resolvedConfig.model !== fallbackModel) {
-      console.warn(`Falling back to default model (${fallbackModel}) after failing to init ${resolvedConfig.model}:`, error);
-      const result = await runTrackedAIRequest(
-        {
-          route: 'actions.resumes.convertTextToResume.fallback',
-          userId,
-          isPro,
-          config: { ...resolvedConfig, model: fallbackModel },
-          useThinking: isPro,
-        },
-        (aiClient) => generateObject({
+      (aiClient) =>
+        generateObject({
           model: aiClient,
           schema: z.object({
-            content: textImportSchema
+            content: textImportSchema,
           }),
-          system: `You are ResumeFormatter, an expert system specialized in analyzing complete resumes and converting them into a structured JSON object tailored for targeted job applications.
+          system: CV_FULL_IMPORT_SYSTEM_MESSAGE,
+          prompt: `TARGET_ROLE (keyword emphasis only, do not filter content): ${targetRole}
 
-        Your task is to transform the complete resume text into a JSON object according to the provided schema. You will identify and extract the most relevant experiences, skills, projects, and educational background based on the target role. While doing so, you are allowed to make minimal formatting changes only to enhance clarity and highlight relevance—**do not reword, summarize, or alter the core details of any content.**
+STRUCTURED_PARSE_HINT (refine and complete — keep separate entries per job/degree):
+${structuredHint}
 
-        CRITICAL DIRECTIVES:
-        1. **Analysis & Selection:**
-          - Analyze the full resume text that includes all user experiences, skills, projects, and education.
-          - Identify the items that best match the target role: ${targetRole}.
-          - Always include the education section:
-            - If only one educational entry exists, include it.
-            - If multiple entries exist, select the one(s) most relevant to the target role.
-
-        2. **Formatting & Emphasis:**
-          - Transform the resume into a JSON object following the schema, with sections such as basic information, professional experience, projects, skills, and education.
-          - Preserve all original details, dates, and descriptions. Only modify the text for formatting purposes.
-          - **Enhance relevance by marking keywords** within work experience descriptions, project details, achievements, and education details with bold formatting (i.e., wrap them with two asterisks like **this**). Apply this only to keywords or phrases that are highly relevant to the target role.
-          - Do not add any formatting to section titles or headers.
-          - Use empty arrays ([]) for any sections that do not contain relevant items.
-
-        3. **Output Requirements:**
-          - The final output must be a valid JSON object that adheres to the specified schema.
-          - Include only the most relevant items, optimized for the target role.
-          - Do not add any new information or rephrase the provided content—only apply minor formatting (like bolding) to emphasize key points.
-        `,
-          prompt: `INPUT:
-    Extract and transform the resume information from the following text:
-    ${sanitizedResumeInput.text}
-    Now, format this information into the JSON object according to the schema, ensuring it is optimized for the target role: ${targetRole}.`,
+RAW_RESUME_TEXT:
+${sanitizedResumeInput.text}`,
         })
-      );
-      object = result.object;
-    } else {
-      throw error;
-    }
+    );
+    const merged = coalesceImportContent(result.object.content, structuredBaseline);
+    return mergeImportContent(existingResume, merged);
+  } catch (error) {
+    logger.warn("[convertTextToResume] AI failed, using structured parser", error);
+    return mergeImportContent(existingResume, structuredBaseline);
   }
-  
-  const updatedResume = {
-    ...existingResume,
-    ...(object.content.first_name && { first_name: object.content.first_name }),
-    ...(object.content.last_name && { last_name: object.content.last_name }),
-    ...(object.content.email && { email: object.content.email }),
-    ...(object.content.phone_number && { phone_number: object.content.phone_number }),
-    ...(object.content.location && { location: object.content.location }),
-    ...(object.content.website && { website: object.content.website }),
-    ...(object.content.linkedin_url && { linkedin_url: object.content.linkedin_url }),
-    ...(object.content.github_url && { github_url: object.content.github_url }),
-    
-    work_experience: [...existingResume.work_experience, ...(object.content.work_experience || [])],
-    education: [...existingResume.education, ...(object.content.education || [])],
-    skills: [...existingResume.skills, ...(object.content.skills || [])],
-    projects: [...existingResume.projects, ...(object.content.projects || [])],
-  };
-
-  
-  return updatedResume;
 }
 
 
@@ -374,45 +350,75 @@ export async function convertTextToResume(prompt: string, existingResume: Resume
           return object.content;
       }
       
-      // ADDING TEXT CONTENT TO RESUME
-      export async function addTextToResume(prompt: string, existingResume: Resume, config?: AIConfig) {
-          const { isPro, userId } = await getAIPlanState();
-  
-          // Use custom prompt if provided in config, otherwise fall back to default
-          const systemPrompt = config?.customPrompts?.textAnalyzer 
-            ?? (TEXT_ANALYZER_SYSTEM_MESSAGE.content as string);
-          
-          const { object } = await runTrackedAIRequest({
-          route: 'actions.resumes.addTextToResume',
-          userId,
-          isPro,
-          config,
-          }, (aiClient) => generateObject({
+// ADDING TEXT CONTENT TO RESUME
+export async function addTextToResume(prompt: string, existingResume: Resume, config?: AIConfig) {
+  const { isPro, userId } = await getAIPlanState();
+  const sanitized = sanitizeForPrompt(prompt);
+  if (sanitized.detected || sanitized.wasTrimmed) {
+    await logPromptInjectionAttempt({
+      userId,
+      route: "actions.resumes.addTextToResume",
+      details: `removed=${sanitized.removedFragments},trimmed=${sanitized.wasTrimmed}`,
+    });
+  }
+
+  const structuredBaseline = parseResumeTextStructured(sanitized.text);
+
+  if (isLocalDevMockAI()) {
+    return mergeImportContent(existingResume, structuredBaseline);
+  }
+
+  const fallbackModel = resolveTaskModel("cv", isPro);
+  const modelId = resolveImportModel(config, isPro);
+  const resolvedConfig: AIConfig = {
+    model: modelId,
+    apiKeys: config?.apiKeys || [],
+    ...(config?.customPrompts ? { customPrompts: config.customPrompts } : {}),
+  };
+
+  const structuredHint = JSON.stringify(structuredBaseline, null, 2).slice(0, 14_000);
+
+  const runExtraction = (model: string) =>
+    runTrackedAIRequest(
+      {
+        route:
+          model === modelId
+            ? "actions.resumes.addTextToResume"
+            : "actions.resumes.addTextToResume.fallback",
+        userId,
+        isPro,
+        config: { ...resolvedConfig, model },
+      },
+      (aiClient) =>
+        generateObject({
           model: aiClient,
-          schema: z.object({
-              content: textImportSchema
-          }),
-          prompt: `Extract relevant resume information from the following text, including basic information (name, contact details, etc) and professional experience. Format them according to the schema:\n\n${prompt}`,
-          system: systemPrompt,
-          }));
-          
-          // Merge the AI-generated content with existing resume data
-          const updatedResume = {
-          ...existingResume,
-          ...(object.content.first_name && { first_name: object.content.first_name }),
-          ...(object.content.last_name && { last_name: object.content.last_name }),
-          ...(object.content.email && { email: object.content.email }),
-          ...(object.content.phone_number && { phone_number: object.content.phone_number }),
-          ...(object.content.location && { location: object.content.location }),
-          ...(object.content.website && { website: object.content.website }),
-          ...(object.content.linkedin_url && { linkedin_url: object.content.linkedin_url }),
-          ...(object.content.github_url && { github_url: object.content.github_url }),
-          
-          work_experience: [...existingResume.work_experience, ...(object.content.work_experience || [])],
-          education: [...existingResume.education, ...(object.content.education || [])],
-          skills: [...existingResume.skills, ...(object.content.skills || [])],
-          projects: [...existingResume.projects, ...(object.content.projects || [])],
-          };
-          
-          return updatedResume;
+          schema: z.object({ content: textImportSchema }),
+          system: CV_FULL_IMPORT_SYSTEM_MESSAGE,
+          prompt: `STRUCTURED_PARSE_HINT (refine and complete — separate entry per job/degree):
+${structuredHint}
+
+RAW_RESUME_TEXT:
+${sanitized.text}`,
+        })
+    );
+
+  try {
+    const { object } = await runExtraction(modelId);
+    const merged = coalesceImportContent(object.content, structuredBaseline);
+    return mergeImportContent(existingResume, merged);
+  } catch (error) {
+    if (modelId !== fallbackModel) {
+      try {
+        const { object } = await runExtraction(fallbackModel);
+        const merged = coalesceImportContent(object.content, structuredBaseline);
+        return mergeImportContent(existingResume, merged);
+      } catch (fallbackError) {
+        logger.warn("[addTextToResume] AI fallback failed", fallbackError);
       }
+    } else {
+      logger.warn("[addTextToResume] AI failed", error);
+    }
+
+    return mergeImportContent(existingResume, structuredBaseline);
+  }
+}

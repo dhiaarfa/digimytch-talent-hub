@@ -2,19 +2,26 @@
 
 import { generateText, type CoreMessage } from "ai";
 import type { AIConfig } from "@/lib/ai-models";
+import { runTrackedAIRequest } from "@/lib/ai/run-tracked-request";
+import {
+  getDigimytchModelFallbackChain,
+  selectDigimytchModelForTask,
+} from "@/lib/digimytch-openrouter-models";
 import {
   buildDebriefSystemPrompt,
   buildProfileBrief,
   buildRecruiterSystemPrompt,
+  isProfileEmpty,
   type InterviewMessage,
   type InterviewScenario,
 } from "@/lib/interview-simulator";
 import type { Profile } from "@/lib/types";
 import {
-  finishAIUsageRequest,
-  logPromptInjectionAttempt,
-  startAIUsageRequest,
-} from "@/lib/ai/usage-ledger";
+  DEMO_INTERVIEW_PROFILE,
+  DEMO_INTERVIEW_PROFILE_BRIEF,
+  DEMO_INTERVIEW_TARGET_ROLE,
+} from "@/lib/interview-demo-profile";
+import { logPromptInjectionAttempt } from "@/lib/ai/usage-ledger";
 import { trimInterviewMessages } from "@/lib/interview-messages";
 import { sanitizeForPrompt } from "@/lib/prompt-security";
 import { getDashboardData } from "@/utils/actions";
@@ -32,6 +39,7 @@ export type InterviewSetupData = {
   defaultTargetRole: string;
   userDisplayName: string;
   userAvatarUrl: string | null;
+  isProfileEmpty: boolean;
   jobs: Array<{
     id: string;
     label: string;
@@ -40,9 +48,18 @@ export type InterviewSetupData = {
   }>;
 };
 
+function resolveSimulationBrief(profile: Profile | null, demoMode?: boolean): string {
+  if (demoMode || isProfileEmpty(profile)) {
+    return DEMO_INTERVIEW_PROFILE_BRIEF;
+  }
+  return buildProfileBrief(profile!);
+}
+
 async function getPlanState() {
   const { plan, id } = await getSubscriptionPlan(true);
-  return { isPro: plan === "pro", userId: id ?? "" };
+  // In Digimytch Talent Hub mode, all users have Pro access
+  const { IS_DIGIMYTCH_TALENT_HUB } = await import("@/lib/digimytch-config");
+  return { isPro: IS_DIGIMYTCH_TALENT_HUB || plan === "pro", userId: id ?? "" };
 }
 
 async function runInterviewAI(input: {
@@ -62,65 +79,60 @@ async function runInterviewAI(input: {
     });
   }
 
-  let usageEventId: string;
-  let model;
-  try {
-    const started = await startAIUsageRequest({
-      route: input.route,
-      userId,
-      isPro,
-      config: input.config,
-    });
-    usageEventId = started.usageEventId;
-    model = started.model;
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Accès IA indisponible.";
-    return { ok: false, error: message };
-  }
+  const preferredModel =
+    input.config?.model ?? selectDigimytchModelForTask("interview");
+  const chain = getDigimytchModelFallbackChain(preferredModel);
+  const maxTokens = input.maxTokens ?? 220;
+  let lastError = "Réponse vide de l'assistant.";
 
-  try {
-    const { text, usage } = await generateText({
-      model,
-      system: sanitizedSystem.text,
-      messages: input.messages,
-      maxTokens: input.maxTokens ?? 500,
-    });
+  for (let i = 0; i < chain.length; i++) {
+    const modelId = chain[i];
+    try {
+      const { text } = await runTrackedAIRequest(
+        {
+          route: i === 0 ? input.route : `${input.route}.model_fallback`,
+          userId,
+          isPro,
+          config: {
+            model: modelId,
+            apiKeys: input.config?.apiKeys ?? [],
+          },
+        },
+        (model) =>
+          generateText({
+            model,
+            system: sanitizedSystem.text,
+            messages: input.messages,
+            maxTokens,
+            maxRetries: 0,
+            temperature: 0.7,
+          })
+      );
 
-    await finishAIUsageRequest({
-      usageEventId,
-      status: "succeeded",
-      usage,
-    });
-
-    const reply = text?.trim();
-    if (!reply) {
-      return { ok: false, error: "Réponse vide de l'assistant." };
+      const reply = text?.trim();
+      if (reply) {
+        return { ok: true, reply };
+      }
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error.message
+          : "Impossible de générer la réponse pour le moment.";
     }
-    return { ok: true, reply };
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: "failed",
-      errorCode: error instanceof Error ? error.message : "ai_failed",
-    });
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Impossible de générer la réponse pour le moment.";
-    return { ok: false, error: message };
   }
+
+  return { ok: false, error: lastError };
 }
 
 export async function getInterviewSetup(): Promise<InterviewSetupData> {
-  const { profile, baseResumes } = await getDashboardData();
-  if (!profile) {
-    throw new Error("Profil introuvable");
-  }
+  const { profile: rawProfile, baseResumes } = await getDashboardData();
+  const empty = isProfileEmpty(rawProfile);
+  const profile = empty ? DEMO_INTERVIEW_PROFILE : rawProfile!;
 
-  const defaultTargetRole =
-    baseResumes.find((r) => r.is_base_resume)?.target_role?.trim() ||
-    "Développeur / poste visé à préciser";
+  const defaultTargetRole = empty
+    ? DEMO_INTERVIEW_TARGET_ROLE
+    : baseResumes.find((r) => r.is_base_resume)?.target_role?.trim() ||
+      "Développeur / poste visé à préciser";
 
   let jobs: InterviewSetupData["jobs"] = [];
   try {
@@ -135,17 +147,19 @@ export async function getInterviewSetup(): Promise<InterviewSetupData> {
     jobs = [];
   }
 
-  const displayName =
-    profile.full_name?.trim() ||
-    [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
-    "Candidat";
+  const displayName = empty
+    ? "Alex Martin (démo)"
+    : rawProfile!.full_name?.trim() ||
+      [rawProfile!.first_name, rawProfile!.last_name].filter(Boolean).join(" ").trim() ||
+      "Candidat";
 
   return {
     profile,
-    profileBrief: buildProfileBrief(profile),
+    profileBrief: empty ? DEMO_INTERVIEW_PROFILE_BRIEF : buildProfileBrief(rawProfile!),
     defaultTargetRole,
     userDisplayName: displayName,
-    userAvatarUrl: profile.avatar_url ?? null,
+    userAvatarUrl: empty ? null : (rawProfile!.avatar_url ?? null),
+    isProfileEmpty: empty,
     jobs,
   };
 }
@@ -153,13 +167,10 @@ export async function getInterviewSetup(): Promise<InterviewSetupData> {
 export async function startInterviewSimulation(input: {
   scenario: InterviewScenario;
   config?: AIConfig;
+  demoMode?: boolean;
 }): Promise<InterviewActionResult> {
   const { profile } = await getDashboardData();
-  if (!profile) {
-    return { ok: false, error: "Complétez votre profil avant la simulation." };
-  }
-
-  const profileBrief = buildProfileBrief(profile);
+  const profileBrief = resolveSimulationBrief(profile, input.demoMode);
   const system = buildRecruiterSystemPrompt(profileBrief, input.scenario);
 
   return runInterviewAI({
@@ -173,7 +184,7 @@ export async function startInterviewSimulation(input: {
       },
     ],
     config: input.config,
-    maxTokens: 120,
+    maxTokens: 220,
   });
 }
 
@@ -181,17 +192,15 @@ export async function continueInterviewSimulation(input: {
   scenario: InterviewScenario;
   messages: InterviewMessage[];
   config?: AIConfig;
+  demoMode?: boolean;
 }): Promise<InterviewActionResult> {
   const { profile } = await getDashboardData();
-  if (!profile) {
-    return { ok: false, error: "Profil introuvable." };
-  }
 
   if (!input.messages.some((m) => m.role === "user")) {
     return { ok: false, error: "Aucune réponse candidat à traiter." };
   }
 
-  const profileBrief = buildProfileBrief(profile);
+  const profileBrief = resolveSimulationBrief(profile, input.demoMode);
   const system = buildRecruiterSystemPrompt(profileBrief, input.scenario);
 
   const trimmed = trimInterviewMessages(input.messages);
@@ -205,7 +214,7 @@ export async function continueInterviewSimulation(input: {
     system,
     messages: coreMessages,
     config: input.config,
-    maxTokens: 120,
+    maxTokens: 220,
   });
 }
 
@@ -213,13 +222,10 @@ export async function finishInterviewSimulation(input: {
   scenario: InterviewScenario;
   messages: InterviewMessage[];
   config?: AIConfig;
+  demoMode?: boolean;
 }): Promise<InterviewActionResult> {
   const { profile } = await getDashboardData();
-  if (!profile) {
-    return { ok: false, error: "Profil introuvable." };
-  }
-
-  const profileBrief = buildProfileBrief(profile);
+  const profileBrief = resolveSimulationBrief(profile, input.demoMode);
   const system = buildDebriefSystemPrompt(profileBrief, input.scenario);
 
   const transcript = input.messages

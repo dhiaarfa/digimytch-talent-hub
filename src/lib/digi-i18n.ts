@@ -4,12 +4,19 @@ export function appCopy(lang: DigiLang) {
   const en = lang === "en";
   return {
     navHome: en ? "Dashboard" : "Tableau de bord",
-    navResume: en ? "My resume" : "Mon CV",
+    navResume: en ? "CV & letters" : "CV & lettres",
+    navScoreCv: en ? "CV score" : "Score CV",
+    navLinkedIn: en ? "LinkedIn" : "LinkedIn",
     navJobs: en ? "Analyze a job" : "Analyser une offre",
     navCourses: en ? "Training" : "Formations",
     navApplications: en ? "My applications" : "Mes candidatures",
     navInterviews: en ? "Interviews" : "Entretiens",
     navAdmin: en ? "Administration" : "Administration",
+    navTrash: en ? "Trash" : "Corbeille",
+    navLoyalty: en ? "Loyalty points" : "Points fidélité",
+    navProfile: en ? "Profile" : "Profil",
+    navSettings: en ? "Settings" : "Paramètres",
+    navLogout: en ? "Logout" : "Déconnexion",
     jobsTitle: en ? "Analyze a job offer" : "Analyser une offre",
     jobsDesc: en
       ? "Paste a job posting. Get a compatibility score with your resume, then track the application in My applications."
@@ -32,5 +39,11 @@ export function appCopy(lang: DigiLang) {
     jobsApplications: en ? "My applications" : "Mes candidatures",
     viewGrid: en ? "Grid" : "Grille",
     viewList: en ? "List" : "Liste",
+    jobsSemanticToggle: en ? "Advanced search (AI semantic)" : "Recherche avancée (IA sémantique)",
+    jobsSemanticHint: en
+      ? "Matches similar roles even when wording differs (e.g. React dev ↔ Frontend JS engineer)."
+      : "Associe des intitulés proches (ex. Développeur React ↔ Ingénieur JavaScript Frontend).",
+    jobsSemanticLoading: en ? "Computing semantic scores…" : "Calcul des scores sémantiques…",
+    jobsSemanticBadge: en ? "AI semantic" : "IA sémantique",
   };
 }

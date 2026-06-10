@@ -29,6 +29,8 @@ interface EditorPanelProps {
   job: Job | null;
   isLoadingJob: boolean;
   onResumeChange: (field: keyof Resume, value: Resume[keyof Resume]) => void;
+  defaultTab?: string;
+  hideCoverLetter?: boolean;
 }
 
 export function EditorPanel({
@@ -37,6 +39,8 @@ export function EditorPanel({
   job,
   isLoadingJob,
   onResumeChange,
+  defaultTab = "basic",
+  hideCoverLetter = false,
 }: EditorPanelProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -69,8 +73,8 @@ export function EditorPanel({
             </Accordion>
 
             {/* Tabs */}  
-            <Tabs defaultValue="basic" className="mb-4">
-              <ResumeEditorTabs />
+            <Tabs defaultValue={defaultTab} className="mb-4">
+              <ResumeEditorTabs hideCoverLetter={hideCoverLetter} />
 
               {/* Basic Info Form */}
               <TabsContent value="basic">
@@ -162,14 +166,11 @@ export function EditorPanel({
                 </Suspense>
               </TabsContent>
 
-              {/* Cover Letter Form */}
-              <TabsContent value="cover-letter">
-                <CoverLetterPanel
-                  resume={resume}
-                  job={job}
-                />
-              </TabsContent>
-
+              {!hideCoverLetter && (
+                <TabsContent value="cover-letter">
+                  <CoverLetterPanel resume={resume} job={job} />
+                </TabsContent>
+              )}
 
               {/* Resume Score Form */}
               <TabsContent value="resume-score">

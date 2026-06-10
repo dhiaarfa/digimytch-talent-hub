@@ -170,7 +170,7 @@ export const EducationForm = memo(function EducationFormComponent({
                     "focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20",
                     "hover:border-indigo-500/30 hover:bg-white/60 transition-colors",
                     "placeholder:text-gray-400",
-                    "text-[10px] sm:text-xs"
+                    "text-xs sm:text-xs"
                   )}
                   placeholder={tResume("City, Country", `${L.city}, ${L.country}`)}
                 />
@@ -190,7 +190,7 @@ export const EducationForm = memo(function EducationFormComponent({
                       "focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20",
                       "hover:border-indigo-500/30 hover:bg-white/60 transition-colors",
                       "placeholder:text-gray-400",
-                      "text-[10px] sm:text-xs"
+                      "text-xs sm:text-xs"
                     )}
                     placeholder="Bachelor's, Master's, etc."
                   />
@@ -207,7 +207,7 @@ export const EducationForm = memo(function EducationFormComponent({
                       "focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20",
                       "hover:border-indigo-500/30 hover:bg-white/60 transition-colors",
                       "placeholder:text-gray-400",
-                      "text-[10px] sm:text-xs"
+                      "text-xs sm:text-xs"
                     )}
                     placeholder={L.fieldOfStudy}
                   />
@@ -227,7 +227,7 @@ export const EducationForm = memo(function EducationFormComponent({
                     "w-full h-9 bg-white/50 border-gray-200 rounded-lg",
                     "focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20",
                     "hover:border-indigo-500/30 hover:bg-white/60 transition-colors",
-                    "text-[10px] sm:text-xs"
+                    "text-xs sm:text-xs"
                   )}
                   placeholder={L.placeholderDate}
                 />
@@ -238,7 +238,7 @@ export const EducationForm = memo(function EducationFormComponent({
 
               {/* Current Status Note */}
               <div className="flex items-center space-x-2 -mt-1">
-                <span className="text-[8px] sm:text-[10px] text-gray-500">Use &apos;Present&apos; in the date field for current education</span>
+                <span className="text-xs sm:text-xs text-gray-500">Use &apos;Present&apos; in the date field for current education</span>
               </div>
 
               {/* GPA */}
@@ -255,7 +255,7 @@ export const EducationForm = memo(function EducationFormComponent({
                     "focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20",
                     "hover:border-indigo-500/30 hover:bg-white/60 transition-colors",
                     "placeholder:text-gray-400",
-                    "text-[10px] sm:text-xs"
+                    "text-xs sm:text-xs"
                   )}
                   placeholder="0.00"
                 />
@@ -267,8 +267,8 @@ export const EducationForm = memo(function EducationFormComponent({
               {/* Achievements */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-baseline">
-                  <Label className="text-[10px] sm:text-xs font-medium text-indigo-700">Achievements & Activities</Label>
-                  <span className="text-[8px] sm:text-[10px] text-gray-500">One achievement per line</span>
+                  <Label className="text-xs sm:text-xs font-medium text-indigo-700">Achievements & Activities</Label>
+                  <span className="text-xs sm:text-xs text-gray-500">One achievement per line</span>
                 </div>
                 <Tiptap
                   content={(edu.achievements || []).join('\n')}
@@ -285,7 +285,7 @@ export const EducationForm = memo(function EducationFormComponent({
                     "focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20",
                     "hover:border-indigo-500/30 hover:bg-white/60 transition-colors",
                     "placeholder:text-gray-400",
-                    "text-[10px] sm:text-xs"
+                    "text-xs sm:text-xs"
                   )}
                 />
               </div>

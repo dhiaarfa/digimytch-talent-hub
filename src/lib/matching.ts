@@ -17,6 +17,10 @@ const STOP = new Set([
   "sur",
 ]);
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function normToken(s: string): string {
   return s
     .toLowerCase()
@@ -25,7 +29,8 @@ function normToken(s: string): string {
     .replace(/c\+\+/g, "cpp")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9+#.\-]/gi, "")
+    .replace(/\+/g, "")
+    .replace(/[^a-z0-9#.\-]/gi, "")
     .trim();
 }
 
@@ -109,8 +114,10 @@ function extractExperienceBonusMap(resume: Resume): Map<string, number> {
     .toLowerCase();
 
   for (const token of tokenizeText(blocks)) {
-    const hasYears = new RegExp(`(\\d+)\\s*(ans|years?)\\s+${token}`).test(blocks);
-    const isSenior = new RegExp(`senior\\s+${token}`).test(blocks);
+    if (!token || token.length < 2) continue;
+    const safe = escapeRegExp(token);
+    const hasYears = new RegExp(`(\\d+)\\s*(ans|years?)\\s+${safe}`, "i").test(blocks);
+    const isSenior = new RegExp(`senior\\s+${safe}`, "i").test(blocks);
     if (hasYears || isSenior) {
       bonuses.set(token, 1.3);
       for (const s of expandTechnicalSynonyms(token)) bonuses.set(normToken(s), 1.3);
@@ -223,5 +230,32 @@ export function computeResumeJobMatch(
     missingKeywords: missingKeywords.slice(0, 40),
     matchedSkills,
     gapSkills,
+  };
+}
+
+/**
+ * Combine similarité sémantique (0–1) et score déterministe (0–100).
+ * Poids : 60 % sémantique + 40 % mots-clés.
+ */
+export function blendHybridScore(semantic01: number, deterministicScore: number): number {
+  const semantic = Math.max(0, Math.min(1, semantic01));
+  const deterministic = Math.max(0, Math.min(100, deterministicScore)) / 100;
+  return Math.round((semantic * 0.6 + deterministic * 0.4) * 100);
+}
+
+/** Applique le score hybride sur un résultat déterministe existant. */
+export function applyHybridToMatch(
+  deterministic: JobMatchResult,
+  semanticSimilarity: number | null | undefined
+): JobMatchResult {
+  if (semanticSimilarity == null || Number.isNaN(semanticSimilarity)) {
+    return deterministic;
+  }
+  const clamped = Math.max(0, Math.min(1, semanticSimilarity));
+  return {
+    ...deterministic,
+    score: blendHybridScore(clamped, deterministic.score),
+    semanticEnhanced: true,
+    semanticSimilarity: clamped,
   };
 }

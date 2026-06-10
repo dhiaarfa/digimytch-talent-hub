@@ -4,18 +4,18 @@ import { cookies } from "next/headers";
 import { Toaster } from "sonner";
 import { Footer } from "@/components/layout/footer";
 import { AppHeader } from "@/components/layout/app-header";
-import { createClient } from "@/utils/supabase/server";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import { getSubscriptionAccessState } from "@/lib/subscription-access";
 import { isAdminUser, IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { GlobalAssistantLazy } from "@/components/ai/global-assistant-lazy";
 import { getRootMetadata } from "@/lib/app-metadata";
-import { getAuthUserWithTimeout } from "@/lib/supabase-resilience";
+import { getCachedAuthUser } from "@/lib/server-auth";
 import { DigimytchShell } from "@/components/dashboard/digimytch-shell";
 import { ScrollButtons } from "@/components/ui/scroll-to-top";
-import { TopProgressBar } from "@/components/ui/progress-bar";
+import { SupabaseSessionGuard } from "@/components/auth/supabase-session-guard";
+import { FeedbackWidget } from "@/components/feedback/feedback-widget";
+import { DigimytchNavigationProgressShell } from "@/components/ui/digimytch-navigation-progress-shell";
 
 const isVercel = process.env.VERCEL === "1";
 
@@ -44,90 +44,27 @@ export default async function RootLayout({
   const langCookie = cookieStore.get("digi-lang")?.value;
   const lang = langCookie === "en" ? "en" : "fr";
 
-  const supabase = await createClient();
-  const { user } = await getAuthUserWithTimeout(() => supabase.auth.getUser());
+  const { user } = await getCachedAuthUser();
 
   const digimytch = IS_DIGIMYTCH_TALENT_HUB;
-  let showUpgradeButton = false;
-  let isProPlan = false;
-  let upgradeButtonVariant: "trial" | "upgrade" = "upgrade";
-
   const useDigimytchShell = Boolean(user && digimytch);
   const isAdmin = isAdminUser(user ?? null);
+
+  // Subscription is NOT fetched here — only on /settings and /subscription (see cached-subscription.ts).
+  const isProPlan = digimytch;
+  const showUpgradeButton = false;
+  const upgradeButtonVariant: "trial" | "upgrade" = "upgrade";
 
   let shellUserName: string | undefined;
   let shellAvatarUrl: string | undefined;
 
-  if (user) {
-    if (digimytch) {
-      const [, profileResult] = await Promise.all([
-        Promise.resolve(),
-        supabase
-          .from("profiles")
-          .select("full_name, avatar_url, first_name, last_name")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-      ]);
-      isProPlan = true;
-      showUpgradeButton = false;
-
-      if (useDigimytchShell) {
-        const profile = profileResult.data;
-        const meta = user.user_metadata as Record<string, string | undefined> | undefined;
-        shellUserName =
-          profile?.full_name?.trim() ||
-          meta?.full_name?.trim() ||
-          [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
-          user.email?.split("@")[0] ||
-          "Utilisateur";
-        shellAvatarUrl = profile?.avatar_url || meta?.avatar_url;
-      }
-    } else {
-      const [subscriptionResult, profileResult] = await Promise.all([
-        (async () => {
-          try {
-            return await supabase
-              .from("subscriptions")
-              .select(
-                "subscription_plan, subscription_status, current_period_end, trial_end, stripe_subscription_id"
-              )
-              .eq("user_id", user.id)
-              .maybeSingle();
-          } catch {
-            return { data: null };
-          }
-        })(),
-        useDigimytchShell
-          ? supabase
-              .from("profiles")
-              .select("full_name, avatar_url, first_name, last_name")
-              .eq("user_id", user.id)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
-
-      try {
-        const subscriptionState = getSubscriptionAccessState(subscriptionResult.data);
-        isProPlan = subscriptionState.hasProAccess;
-        showUpgradeButton = !subscriptionState.hasProAccess;
-        upgradeButtonVariant = subscriptionState.needsTrial ? "trial" : "upgrade";
-      } catch {
-        showUpgradeButton = true;
-        isProPlan = false;
-      }
-
-      if (useDigimytchShell) {
-        const profile = profileResult.data;
-        const meta = user.user_metadata as Record<string, string | undefined> | undefined;
-        shellUserName =
-          profile?.full_name?.trim() ||
-          meta?.full_name?.trim() ||
-          [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
-          user.email?.split("@")[0] ||
-          "Utilisateur";
-        shellAvatarUrl = profile?.avatar_url || meta?.avatar_url;
-      }
-    }
+  if (user && useDigimytchShell) {
+    const meta = user.user_metadata as Record<string, string | undefined> | undefined;
+    shellUserName =
+      meta?.full_name?.trim() ||
+      user.email?.split("@")[0] ||
+      "Utilisateur";
+    shellAvatarUrl = meta?.avatar_url;
   }
 
   return (
@@ -137,7 +74,8 @@ export default async function RootLayout({
         className={`${spaceGrotesk.variable} ${plusJakarta.variable} ${digimytch ? "digimytch-theme" : ""}`}
       >
         <ThemeProvider>
-          <TopProgressBar />
+          <SupabaseSessionGuard />
+          {digimytch && <DigimytchNavigationProgressShell />}
           <div className="relative min-h-screen flex flex-col">
             {user && !useDigimytchShell && (
               <AppHeader
@@ -179,6 +117,7 @@ export default async function RootLayout({
           />
           {!user && <ScrollButtons />}
           <GlobalAssistantLazy isLoggedIn={!!user} />
+          {user && !isAdmin && digimytch && <FeedbackWidget />}
         </ThemeProvider>
       </body>
     </html>

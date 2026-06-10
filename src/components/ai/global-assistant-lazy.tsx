@@ -7,9 +7,10 @@ const GlobalAssistant = dynamic(
     import("@/components/ai/global-assistant").then((m) => ({
       default: m.GlobalAssistant,
     })),
-  { ssr: false }
+  { ssr: false, loading: () => null }
 );
 
 export function GlobalAssistantLazy({ isLoggedIn }: { isLoggedIn: boolean }) {
+  if (!isLoggedIn) return null;
   return <GlobalAssistant isLoggedIn={isLoggedIn} />;
 }

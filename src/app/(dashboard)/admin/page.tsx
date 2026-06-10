@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
 import { isAdminUser } from "@/lib/digimytch-config";
 import { AdminDashboard } from "@/components/admin/admin-dashboard";
-import { getAuthUserWithTimeout } from "@/lib/supabase-resilience";
+import { getCachedAuthUser } from "@/lib/server-auth";
 
 export default async function AdminPage() {
-  const supabase = await createClient();
-  const { user } = await getAuthUserWithTimeout(() => supabase.auth.getUser());
+  const { user } = await getCachedAuthUser();
 
-  if (!user || !isAdminUser(user.email)) {
+  // Pass full user object so isAdminUser checks app_metadata.is_admin first
+  if (!user || !isAdminUser(user)) {
     redirect("/home");
   }
 

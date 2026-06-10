@@ -14,6 +14,15 @@ export type InterviewScenario = {
 
 export const INTERVIEW_MAX_TURNS = 8;
 
+export function isProfileEmpty(profile: Profile | null | undefined): boolean {
+  if (!profile) return true;
+  return (
+    !profile.work_experience?.length &&
+    !profile.education?.length &&
+    !profile.skills?.length
+  );
+}
+
 export function buildProfileBrief(profile: Profile): string {
   const name =
     [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||

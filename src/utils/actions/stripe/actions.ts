@@ -1,4 +1,5 @@
 'use server';
+import { logger } from '@/lib/logger';
 
 import { Stripe } from "stripe";
 import { createClient, createServiceClient } from '@/utils/supabase/server';
@@ -83,7 +84,7 @@ export async function manageSubscriptionStatusChange(
   subscriptionId: string,
   customerId: string
 ): Promise<Partial<Subscription>> {
-  console.log('🔄 Starting subscription status change:', {
+  logger.debug('🔄 Starting subscription status change:', {
     subscriptionId,
     customerId,
     timestamp: new Date().toISOString()
@@ -96,7 +97,7 @@ export async function manageSubscriptionStatusChange(
     throw new Error('NEXT_PUBLIC_STRIPE_PRO_PRICE_ID is not configured');
   }
 
-  console.log('📦 Retrieving subscription details from Stripe...');
+  logger.debug('📦 Retrieving subscription details from Stripe...');
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId, {
     expand: ['default_payment_method', 'items.data.price']
   });
@@ -105,7 +106,7 @@ export async function manageSubscriptionStatusChange(
     throw new Error(`Stripe subscription ${subscription.id} has no subscription items`);
   }
 
-  console.log('✅ Retrieved subscription details:', {
+  logger.debug('✅ Retrieved subscription details:', {
     id: subscription.id,
     status: subscription.status,
     currentPeriodEnd: subscriptionItem.current_period_end
@@ -113,12 +114,12 @@ export async function manageSubscriptionStatusChange(
       : null
   });
 
-  console.log('🔍 Retrieving customer data from Stripe...');
+  logger.debug('🔍 Retrieving customer data from Stripe...');
   const customerData = await getStripe().customers.retrieve(customerId);
   let uuid: string | null = null;
 
   if ('deleted' in customerData) {
-    console.warn('⚠️ Stripe customer has been deleted, falling back to Supabase subscription mapping:', {
+    logger.warn('⚠️ Stripe customer has been deleted, falling back to Supabase subscription mapping:', {
       customerId,
       subscriptionId,
     });
@@ -134,7 +135,7 @@ export async function manageSubscriptionStatusChange(
       .maybeSingle();
 
     if (existingBySubscriptionError) {
-      console.error('❌ Error looking up subscription by Stripe subscription id:', existingBySubscriptionError);
+      logger.error('❌ Error looking up subscription by Stripe subscription id:', existingBySubscriptionError);
       throw existingBySubscriptionError;
     }
 
@@ -149,7 +150,7 @@ export async function manageSubscriptionStatusChange(
       .maybeSingle();
 
     if (existingByCustomerError) {
-      console.error('❌ Error looking up subscription by Stripe customer id:', existingByCustomerError);
+      logger.error('❌ Error looking up subscription by Stripe customer id:', existingByCustomerError);
       throw existingByCustomerError;
     }
 
@@ -157,7 +158,7 @@ export async function manageSubscriptionStatusChange(
   }
 
   if (!uuid) {
-    console.warn('⚠️ No Supabase user mapping found for Stripe subscription event; acknowledging without entitlement update:', {
+    logger.warn('⚠️ No Supabase user mapping found for Stripe subscription event; acknowledging without entitlement update:', {
       customerId,
       subscriptionId,
       status: subscription.status,
@@ -178,7 +179,7 @@ export async function manageSubscriptionStatusChange(
     };
   }
 
-  console.log('✅ Resolved customer UUID:', uuid);
+  logger.debug('✅ Resolved customer UUID:', uuid);
 
   // Prepare subscription data
   const subscriptionData: Partial<Subscription> = mapStripeSubscriptionToAppSubscription({
@@ -197,7 +198,7 @@ export async function manageSubscriptionStatusChange(
     proPriceId,
   });
 
-  console.log('\n📋 Prepared subscription data:', subscriptionData);
+  logger.debug('\n📋 Prepared subscription data:', subscriptionData);
 
   try {
     const { data: currentSubscription, error: currentSubscriptionError } = await supabase
@@ -207,7 +208,7 @@ export async function manageSubscriptionStatusChange(
       .maybeSingle();
 
     if (currentSubscriptionError) {
-      console.error('❌ Error reading current subscription before upsert:', currentSubscriptionError);
+      logger.error('❌ Error reading current subscription before upsert:', currentSubscriptionError);
       throw currentSubscriptionError;
     }
 
@@ -217,7 +218,7 @@ export async function manageSubscriptionStatusChange(
         incomingSubscription: subscriptionData,
       })
     ) {
-      console.warn('⚠️ Skipping stale inactive subscription update because a different active subscription is current:', {
+      logger.warn('⚠️ Skipping stale inactive subscription update because a different active subscription is current:', {
         incomingSubscriptionId: subscriptionData.stripe_subscription_id,
         currentSubscriptionId: currentSubscription?.stripe_subscription_id,
         userId: uuid,
@@ -235,7 +236,7 @@ export async function manageSubscriptionStatusChange(
       };
     }
 
-    console.log('🔄 Upserting subscription in database...');
+    logger.debug('🔄 Upserting subscription in database...');
     const { error } = await supabase
       .from('subscriptions')
       .upsert(subscriptionData, {
@@ -244,15 +245,15 @@ export async function manageSubscriptionStatusChange(
       });
 
     if (error) {
-      console.error('❌ Error upserting subscription:', error);
+      logger.error('❌ Error upserting subscription:', error);
       throw error;
     }
-    console.log('✅ Subscription upserted successfully');
+    logger.debug('✅ Subscription upserted successfully');
 
-    console.log('🎉 Subscription management completed successfully!');
+    logger.debug('🎉 Subscription management completed successfully!');
     return subscriptionData;
   } catch (error) {
-    console.error('💥 Error managing subscription:', {
+    logger.error('💥 Error managing subscription:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
@@ -281,7 +282,7 @@ export async function deleteCustomerAndData(uuid: string) {
       if (stripeError.code !== 'resource_missing') {
         throw error;
       }
-      console.warn(`Stripe customer ${subscription.stripe_customer_id} not found (likely created in different Stripe mode), continuing with deletion`);
+      logger.warn(`Stripe customer ${subscription.stripe_customer_id} not found (likely created in different Stripe mode), continuing with deletion`);
     }
   }
 
@@ -304,7 +305,7 @@ export async function getSubscriptionStatus() {
     throw new Error('User not authenticated');
   }
 
-  console.log(' looking for user ', user.id);
+  logger.debug(' looking for user ', user.id);
 
   const { data: subscription, error: subscriptionError } = await supabase
     .from('subscriptions')
@@ -373,7 +374,7 @@ export async function checkSubscriptionPlan() {
   const subscriptionState = getSubscriptionAccessState(data);
   const effectivePlan = data ? subscriptionState.effectivePlan : '';
 
-  console.log('🧮 checkSubscriptionPlan', {
+  logger.debug('🧮 checkSubscriptionPlan', {
     userId: user.id,
     subscription_plan: data?.subscription_plan,
     subscription_status: data?.subscription_status,

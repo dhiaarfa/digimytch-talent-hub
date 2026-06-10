@@ -17,6 +17,7 @@ type ResumeAction =
 const ResumeContext = createContext<{
   state: ResumeState;
   dispatch: Dispatch<ResumeAction>;
+  markAsSaved: () => void;
 } | null>(null);
 
 function resumeReducer(state: ResumeState, action: ResumeAction): ResumeState {
@@ -34,13 +35,13 @@ function resumeReducer(state: ResumeState, action: ResumeAction): ResumeState {
 
       
     case 'SET_SAVING':
-      // console.log('Resume Editor Context - Saving State:', action.value);
+      // logger.debug('Resume Editor Context - Saving State:', action.value);
       return { ...state, isSaving: action.value };
     case 'SET_DELETING':
-      // console.log('Resume Editor Context - Deleting State:', action.value);
+      // logger.debug('Resume Editor Context - Deleting State:', action.value);
       return { ...state, isDeleting: action.value };
     case 'SET_HAS_CHANGES':
-      // console.log('Resume Editor Context - Unsaved Changes:', action.value);
+      // logger.debug('Resume Editor Context - Unsaved Changes:', action.value);
       return { ...state, hasUnsavedChanges: action.value };
     default:
       return state;

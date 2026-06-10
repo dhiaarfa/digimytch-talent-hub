@@ -10,21 +10,26 @@ import type {
   JobApplicationWithJob,
 } from "@/lib/types";
 import { APPLICATION_STATUSES } from "@/lib/types";
+import { getCachedAuthUser } from "@/lib/server-auth";
+import { joinApplicationsWithActiveJobs } from "@/lib/job-applications";
+import { runJobApplicationUpsert } from "@/lib/job-applications-upsert";
 
 function isApplicationStatus(s: string): s is ApplicationStatus {
   return (APPLICATION_STATUSES as readonly string[]).includes(s);
 }
 
 export async function listJobApplications(): Promise<JobApplicationWithJob[]> {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error("Non authentifié");
+  const { user } = await getCachedAuthUser();
+  if (!user) throw new Error("Non authentifié");
 
+  const supabase = await createClient();
   const { data: apps, error } = await supabase
     .from("job_applications")
     .select("*")
     .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(200); // cap — prevents unbounded scans
 
   if (error) {
     console.error("[listJobApplications]", error);
@@ -40,17 +45,14 @@ export async function listJobApplications(): Promise<JobApplicationWithJob[]> {
   const { data: jobs, error: jobErr } = await supabase
     .from("jobs")
     .select("*")
-    .in("id", jobIds);
+    .in("id", jobIds)
+    .is("deleted_at", null);
 
   if (jobErr || !jobs) {
     throw new Error("Impossible de charger les offres liées.");
   }
 
-  const jobMap = new Map(jobs.map((j) => [j.id, j as Job]));
-  return list.map((a) => ({
-    ...(a as JobApplication),
-    job: jobMap.get(a.job_id)!,
-  }));
+  return joinApplicationsWithActiveJobs(list as JobApplication[], jobs as Job[]);
 }
 
 export async function listApplicationEvents(
@@ -65,6 +67,7 @@ export async function listApplicationEvents(
     .select("id")
     .eq("id", applicationId)
     .eq("user_id", user.id)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (!app) throw new Error("Candidature introuvable");
@@ -89,68 +92,116 @@ export async function upsertJobApplication(input: {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw new Error("Non authentifié");
 
-  const status = input.status ?? "saved";
-
-  const { data: existing } = await supabase
-    .from("job_applications")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("job_id", input.jobId)
-    .maybeSingle();
-
-  if (existing) {
-    const prev = existing.status as string;
-    const { data: updated, error } = await supabase
-      .from("job_applications")
-      .update({
-        resume_id: input.resumeId ?? existing.resume_id,
-        status,
-        notes: input.notes ?? existing.notes,
-      })
-      .eq("id", existing.id)
-      .select()
-      .single();
-
-    if (error || !updated) throw new Error("Mise à jour impossible");
-
-    if (prev !== status) {
-      await supabase.from("job_application_events").insert({
-        application_id: existing.id,
-        from_status: prev,
-        to_status: status,
-        note: null,
-      });
-    }
-
-    revalidatePath("/candidatures");
-    revalidatePath("/jobs");
-    return updated as JobApplication;
-  }
-
-  const { data: created, error } = await supabase
-    .from("job_applications")
-    .insert({
-      user_id: user.id,
-      job_id: input.jobId,
-      resume_id: input.resumeId ?? null,
-      status,
-      notes: input.notes ?? null,
-    })
-    .select()
-    .single();
-
-  if (error || !created) throw new Error("Création candidature impossible");
-
-  await supabase.from("job_application_events").insert({
-    application_id: created.id,
-    from_status: null,
-    to_status: status,
-    note: null,
-  });
+  const result = await runJobApplicationUpsert(
+    {
+      fetchActiveJob: async (jobId) => {
+        const { data } = await supabase
+          .from("jobs")
+          .select("id")
+          .eq("id", jobId)
+          .eq("user_id", user.id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        return data;
+      },
+      fetchApplicationByJob: async (jobId) => {
+        const { data } = await supabase
+          .from("job_applications")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("job_id", jobId)
+          .maybeSingle();
+        return data as (JobApplication & { deleted_at?: string | null }) | null;
+      },
+      updateApplication: async (id, patch) => {
+        const { data: updated, error } = await supabase
+          .from("job_applications")
+          .update(patch)
+          .eq("id", id)
+          .select()
+          .single();
+        if (error || !updated) {
+          console.error("[upsertJobApplication] update", error);
+          throw new Error("Mise à jour impossible");
+        }
+        return updated as JobApplication & { deleted_at?: string | null };
+      },
+      insertApplication: async (row) => {
+        const { data: created, error } = await supabase
+          .from("job_applications")
+          .insert({
+            user_id: user.id,
+            job_id: row.job_id,
+            resume_id: row.resume_id,
+            status: row.status,
+            notes: row.notes,
+          })
+          .select()
+          .single();
+        return {
+          data: created as (JobApplication & { deleted_at?: string | null }) | null,
+          error,
+        };
+      },
+      insertStatusEvent: async (event) => {
+        await supabase.from("job_application_events").insert(event);
+      },
+    },
+    input
+  );
 
   revalidatePath("/candidatures");
   revalidatePath("/jobs");
-  return created as JobApplication;
+  revalidatePath("/home");
+  return result;
+}
+
+async function persistApplicationStatusChange(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: {
+    applicationId: string;
+    userId: string;
+    prevStatus: string;
+    nextStatus: ApplicationStatus;
+    note?: string | null;
+  }
+): Promise<void> {
+  const { error: updateError } = await supabase
+    .from("job_applications")
+    .update({ status: input.nextStatus })
+    .eq("id", input.applicationId)
+    .eq("user_id", input.userId);
+
+  if (updateError) {
+    console.error("[updateJobApplicationStatus] update", updateError);
+    throw new Error("Mise à jour impossible");
+  }
+
+  if (input.prevStatus !== input.nextStatus) {
+    const { error: eventError } = await supabase.from("job_application_events").insert({
+      application_id: input.applicationId,
+      from_status: input.prevStatus,
+      to_status: input.nextStatus,
+      note: input.note?.trim() ?? null,
+    });
+    if (eventError) {
+      console.error("[updateJobApplicationStatus] event", eventError);
+    }
+  } else if (input.note?.trim()) {
+    const { data: latest } = await supabase
+      .from("job_application_events")
+      .select("id")
+      .eq("application_id", input.applicationId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest?.id) {
+      await supabase
+        .from("job_application_events")
+        .update({ note: input.note.trim() })
+        .eq("id", latest.id);
+    }
+  }
 }
 
 export async function updateJobApplicationStatus(input: {
@@ -171,19 +222,38 @@ export async function updateJobApplicationStatus(input: {
     .select("*")
     .eq("id", input.applicationId)
     .eq("user_id", user.id)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (!existing) throw new Error("Candidature introuvable");
 
-  const { error } = await supabase.rpc("update_application_status", {
+  const prevStatus = existing.status as string;
+  const nextStatus = input.status;
+
+  const { error: rpcError } = await supabase.rpc("update_application_status", {
     app_id: input.applicationId,
-    new_status: input.status,
+    new_status: nextStatus,
     user_id: user.id,
   });
 
-  if (error) throw new Error("Mise à jour impossible");
+  if (rpcError) {
+    const rpcMissing =
+      rpcError.code === "PGRST202" ||
+      rpcError.message?.includes("update_application_status") ||
+      rpcError.message?.includes("Could not find the function");
 
-  if (input.note?.trim()) {
+    if (!rpcMissing) {
+      console.error("[updateJobApplicationStatus] rpc", rpcError);
+    }
+
+    await persistApplicationStatusChange(supabase, {
+      applicationId: input.applicationId,
+      userId: user.id,
+      prevStatus,
+      nextStatus,
+      note: input.note,
+    });
+  } else if (input.note?.trim()) {
     const { data: latest } = await supabase
       .from("job_application_events")
       .select("id")
@@ -209,10 +279,11 @@ export async function deleteJobApplication(applicationId: string): Promise<void>
 
   const { error } = await supabase
     .from("job_applications")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", applicationId)
     .eq("user_id", user.id);
 
   if (error) throw new Error("Suppression impossible");
   revalidatePath("/candidatures");
+  revalidatePath("/corbeille");
 }

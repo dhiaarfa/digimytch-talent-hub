@@ -1,6 +1,7 @@
 'use server';
 
-import { generateObject, LanguageModelUsage, LanguageModelV1 } from 'ai';
+import { logger } from '@/lib/logger';
+import { generateObject, LanguageModelV1 } from 'ai';
 import { z } from 'zod';
 import { 
   simplifiedJobSchema, 
@@ -8,59 +9,40 @@ import {
 } from "@/lib/zod-schemas";
 import { Job, Resume } from "@/lib/types";
 import { AIConfig } from '@/utils/ai-tools';
-import { getSubscriptionPlan } from '../stripe/actions';
-import {
-  finishAIUsageRequest,
-  logPromptInjectionAttempt,
-  startAIUsageRequest,
-} from '@/lib/ai/usage-ledger';
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
+import { selectBestModelForTask } from "@/lib/ai-models";
+import { getAIPlanState } from "@/lib/ai/plan";
+import { logPromptInjectionAttempt } from '@/lib/ai/usage-ledger';
+import { runTrackedAIRequest } from '@/lib/ai/run-tracked-request';
+import { DIGIMYTCH_OPENROUTER_FALLBACK_CHAIN } from '@/lib/digimytch-openrouter-models';
 import { sanitizeForPrompt, sanitizeUnknownForPrompt } from "@/lib/prompt-security";
-
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-    useThinking?: boolean;
-  },
-  task: (model: LanguageModelV1) => Promise<T>
-) {
-  const { model, usageEventId } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
 
 // Build model candidates list - prioritize user's selected model if provided
 function getModelCandidates(config?: AIConfig) {
+  const keys = config?.apiKeys || [];
+
+  if (IS_DIGIMYTCH_TALENT_HUB) {
+    const preferred = config?.model?.trim() || selectBestModelForTask('cv');
+    const chain = [
+      preferred,
+      ...DIGIMYTCH_OPENROUTER_FALLBACK_CHAIN.filter((id) => id !== preferred),
+    ];
+    return [...new Set(chain)].map((model) => ({ model, apiKeys: keys }));
+  }
+
   const fallbackModels: AIConfig[] = [
-    { model: 'z-ai/glm-4.6:exacto', apiKeys: config?.apiKeys || [] },
-    { model: 'openai/gpt-5-nano', apiKeys: config?.apiKeys || [] },
-    { model: 'openai/gpt-oss-120b', apiKeys: config?.apiKeys || [] },
-    { model: 'openai/gpt-oss-20b', apiKeys: config?.apiKeys || [] },
-    { model: 'deepseek/deepseek-v3.2:nitro', apiKeys: config?.apiKeys || [] },
+    { model: 'z-ai/glm-4.6:exacto', apiKeys: keys },
+    { model: 'openai/gpt-5-nano', apiKeys: keys },
+    { model: 'openai/gpt-oss-120b', apiKeys: keys },
+    { model: 'openai/gpt-oss-20b', apiKeys: keys },
+    { model: 'deepseek/deepseek-v3.2:nitro', apiKeys: keys },
   ];
 
-  // If user has a model selected, try it first before fallbacks
-  const modelCandidates: AIConfig[] = config?.model
-    ? [{ model: config.model, apiKeys: config.apiKeys || [] }, ...fallbackModels]
-    : fallbackModels;
-  return modelCandidates;
+  if (config?.model) {
+    return [{ model: config.model, apiKeys: keys }, ...fallbackModels];
+  }
+
+  return fallbackModels;
 }
 
 export async function tailorResumeToJob(
@@ -68,8 +50,7 @@ export async function tailorResumeToJob(
   jobListing: z.infer<typeof simplifiedJobSchema>,
   config?: AIConfig
 ) {
-  const { plan, id } = await getSubscriptionPlan(true);
-  const isPro = plan === 'pro';
+  const { isPro, userId } = await getAIPlanState();
   const sanitizedResume = sanitizeUnknownForPrompt(resume);
   const sanitizedJobListing = sanitizeUnknownForPrompt(jobListing);
   if (
@@ -79,7 +60,7 @@ export async function tailorResumeToJob(
     sanitizedJobListing.wasTrimmed
   ) {
     await logPromptInjectionAttempt({
-      userId: id,
+      userId,
       route: "actions.jobs.tailorResumeToJob",
       details: `resume_removed=${sanitizedResume.removedFragments},job_removed=${sanitizedJobListing.removedFragments}`,
     });
@@ -93,12 +74,12 @@ export async function tailorResumeToJob(
     let start = Date.now();
     try {
       start = Date.now();
-      console.log(
+      logger.debug(
         `[TAILOR][TRY] ${candidate.model} | STEP: Tailoring resume content | Subscription: ${isPro ? 'PRO' : 'FREE'}`
       );
       const { object } = await runTrackedAIRequest({
         route: 'actions.jobs.tailorResumeToJob',
-        userId: id,
+        userId,
         isPro,
         config: candidate,
         useThinking: isPro,
@@ -133,20 +114,20 @@ Your task: produce a polished, tailored resume that meets the schema exactly and
     `,
       }));
 
-      console.log(
+      logger.debug(
         `[TAILOR][SUCCESS ✅] ${candidate.model} | Duration: ${Date.now() - start}ms | STEP: Tailoring resume content`
       );
       return object.content satisfies z.infer<typeof simplifiedResumeSchema>;
     } catch (error) {
       lastError = error;
-      console.error(
+      logger.error(
         `[TAILOR][FAILED ❌] ${candidate.model} | STEP: Tailoring resume content | Duration: ${Date.now() - start}ms | Reason: ${(error as Error)?.message ?? 'Unknown error'}`,
         error
       );
     }
   }
 
-  console.error(
+  logger.error(
     `[TAILOR][ABORT 🚨] All models failed | Tried: ${modelCandidates.map(m => m.model).join(', ')} | Total Duration: ${
       Date.now() - overallStart
     }ms`
@@ -155,12 +136,11 @@ Your task: produce a polished, tailored resume that meets the schema exactly and
 }
 
 export async function formatJobListing(jobListing: string, config?: AIConfig) {
-  const { plan, id } = await getSubscriptionPlan(true);
-  const isPro = plan === 'pro';
+  const { isPro, userId } = await getAIPlanState();
   const sanitizedJob = sanitizeForPrompt(jobListing);
   if (sanitizedJob.detected || sanitizedJob.wasTrimmed) {
     await logPromptInjectionAttempt({
-      userId: id,
+      userId,
       route: "actions.jobs.formatJobListing",
       details: `removed=${sanitizedJob.removedFragments},trimmed=${sanitizedJob.wasTrimmed}`,
     });
@@ -174,14 +154,14 @@ export async function formatJobListing(jobListing: string, config?: AIConfig) {
     let start = Date.now();
     try {
       start = Date.now();
-      console.log(
+      logger.debug(
         `[FORMAT][TRY] ${candidate.model} | STEP: Analyzing job description → Formatting requirements | Subscription: ${
           isPro ? 'PRO' : 'FREE'
         }`
       );
       const { object } = await runTrackedAIRequest({
         route: 'actions.jobs.formatJobListing',
-        userId: id,
+        userId,
         isPro,
         config: candidate,
         useThinking: isPro,
@@ -235,20 +215,20 @@ export async function formatJobListing(jobListing: string, config?: AIConfig) {
                 - FORMAT THE FOLLOWING JOB LISTING AS A JSON OBJECT: ${sanitizedJob.text}`,
       }));
 
-      console.log(
+      logger.debug(
         `[FORMAT][SUCCESS ✅] ${candidate.model} | Duration: ${Date.now() - start}ms | STEP: Analyzing job description → Formatting requirements`
       );
       return object.content satisfies Partial<Job>;
     } catch (error) {
       lastError = error;
-      console.error(
+      logger.error(
         `[FORMAT][FAILED ❌] ${candidate.model} | STEP: Analyzing job description → Formatting requirements | Duration: ${Date.now() - start}ms | Reason: ${(error as Error)?.message ?? 'Unknown error'}`,
         error
       );
     }
   }
 
-  console.error(
+  logger.error(
     `[FORMAT][ABORT 🚨] All models failed | Tried: ${modelCandidates.map(m => m.model).join(', ')} | Total Duration: ${
       Date.now() - overallStart
     }ms`

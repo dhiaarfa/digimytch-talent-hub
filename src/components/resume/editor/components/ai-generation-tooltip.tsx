@@ -46,7 +46,7 @@ export function AIGenerationSettingsTooltip({
             onClick={() => generateAIPoints(index)}
             disabled={loadingAI}
             className={cn(
-              "flex-1 transition-colors text-[10px] sm:text-xs",
+              "flex-1 transition-colors text-xs sm:text-xs",
               colorClass.button,
               colorClass.border,
               colorClass.hoverBorder,

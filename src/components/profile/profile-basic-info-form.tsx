@@ -34,7 +34,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                     placeholder:text-gray-400"
                   placeholder="First Name"
                 />
-                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   FIRST NAME
                 </div>
               </div>
@@ -53,7 +53,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                     placeholder:text-gray-400"
                   placeholder="Last Name"
                 />
-                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   LAST NAME
                 </div>
               </div>
@@ -77,7 +77,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                     placeholder:text-gray-400"
                   placeholder="email@example.com"
                 />
-                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   EMAIL
                 </div>
               </div>
@@ -97,7 +97,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                     placeholder:text-gray-400"
                   placeholder="+1 (555) 000-0000"
                 />
-                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   PHONE
                 </div>
               </div>
@@ -119,7 +119,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                   placeholder:text-gray-400"
                 placeholder="City, State, Country"
               />
-              <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+              <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                 LOCATION
               </div>
             </div>
@@ -149,7 +149,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                     placeholder:text-gray-400"
                   placeholder="https://your-website.com"
                 />
-                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   WEBSITE
                 </div>
               </div>
@@ -169,7 +169,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                     placeholder:text-gray-400"
                   placeholder="https://linkedin.com/in/username"
                 />
-                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+                <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   LINKEDIN
                 </div>
               </div>
@@ -192,7 +192,7 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                   placeholder:text-gray-400"
                 placeholder="https://github.com/username"
               />
-              <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-[10px] font-medium text-teal-700">
+              <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                 GITHUB
               </div>
             </div>

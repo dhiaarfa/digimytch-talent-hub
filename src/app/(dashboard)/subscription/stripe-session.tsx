@@ -1,5 +1,7 @@
 "use server";
 
+import { logger } from '@/lib/logger';
+
 import { checkAuth } from "@/app/auth/login/actions";
 import { createOrRetrieveCustomer } from "@/utils/actions/stripe/actions";
 import {
@@ -72,7 +74,7 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
         );
 
         if (blockingSubscription) {
-            console.log('🛑 Existing Stripe subscription found before checkout', {
+            logger.debug('🛑 Existing Stripe subscription found before checkout', {
                 userId: user.id,
                 customerId,
                 subscriptionId: blockingSubscription.id,
@@ -105,7 +107,7 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
         );
 
         if (reusableSession?.client_secret) {
-            console.log('♻️ Reusing existing open checkout session', {
+            logger.debug('♻️ Reusing existing open checkout session', {
                 userId: user.id,
                 customerId,
                 sessionId: reusableSession.id,
@@ -121,7 +123,7 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
 
         const returnUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/subscription/checkout-return?session_id={CHECKOUT_SESSION_ID}`;
 
-        console.log('🧾 Creating checkout session', {
+        logger.debug('🧾 Creating checkout session', {
             userId: user.id,
             priceId,
             includeTrial,
@@ -171,7 +173,7 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
             clientSecret: session.client_secret
         };
     } catch (error) {
-        console.error('Error creating checkout session:', error);
+        logger.error('Error creating checkout session:', error);
         throw new Error(error instanceof Error ? error.message : 'Failed to create checkout session');
     }
 }
@@ -200,7 +202,7 @@ export const createPortalSession = async () => {
             url: portalSession.url
         };
     } catch (error) {
-        console.error('Error creating portal session:', error);
+        logger.error('Error creating portal session:', error);
         throw new Error(error instanceof Error ? error.message : 'Failed to create portal session');
     }
 }

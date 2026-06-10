@@ -3,66 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { suggestJobImageUrl } from "@/lib/card-images";
-
-const DEMO_JOBS = [
-  {
-    company_name: "Vermeg",
-    position_title: "Développeur Full Stack Java / React",
-    location: "Tunis",
-    keywords: ["java", "react", "spring", "sql", "rest", "agile"],
-    description:
-      "Développement d'applications bancaires. Stack Java, Spring Boot, React. 2+ ans d'expérience.",
-  },
-  {
-    company_name: "Focus Corporation",
-    position_title: "Ingénieur DevOps",
-    location: "Sousse",
-    keywords: ["docker", "kubernetes", "ci/cd", "aws", "linux"],
-    description: "Pipeline CI/CD, conteneurisation, monitoring. Profil autonome.",
-  },
-  {
-    company_name: "Expensya",
-    position_title: "Développeur Frontend React",
-    location: "Tunis — Hybride",
-    keywords: ["react", "typescript", "redux", "css", "jest"],
-    description: "SaaS fintech. Équipe produit internationale, code review, tests.",
-  },
-  {
-    company_name: "Orange Tunisie",
-    position_title: "Chef de projet digital",
-    location: "Tunis",
-    keywords: ["scrum", "agile", "communication", "project management", "stakeholders"],
-    description: "Pilotage de projets web et mobile. Coordination équipes techniques et métier.",
-  },
-  {
-    company_name: "InstaDeep",
-    position_title: "Machine Learning Engineer",
-    location: "Tunis",
-    keywords: ["python", "pytorch", "machine learning", "nlp", "docker"],
-    description: "Modèles IA en production. Recherche appliquée, MLOps.",
-  },
-  {
-    company_name: "Talabat (Delivery Hero)",
-    position_title: "Backend Developer Node.js",
-    location: "Remote — Tunisie",
-    keywords: ["node.js", "typescript", "postgresql", "microservices", "kafka"],
-    description: "Microservices haute charge. Event-driven architecture.",
-  },
-  {
-    company_name: "BIAT",
-    position_title: "Analyste données junior",
-    location: "Tunis",
-    keywords: ["sql", "power bi", "excel", "data analysis", "reporting"],
-    description: "Tableaux de bord, reporting réglementaire, collaboration avec la DSI.",
-  },
-  {
-    company_name: "Digimytch",
-    position_title: "Stagiaire PFE — Talent Hub",
-    location: "Tunis",
-    keywords: ["next.js", "react", "typescript", "supabase", "ai"],
-    description: "Prototype plateforme carrière. Stack moderne, encadrement PFE.",
-  },
-] as const;
+import { PLATFORM_JOB_CATALOG } from "@/lib/platform-jobs-catalog";
 
 /** Insère des offres démo si l'utilisateur n'en a aucune (démo PFE). */
 export async function ensureDemoJobsIfEmpty(): Promise<{ seeded: number }> {
@@ -81,7 +22,8 @@ export async function ensureDemoJobsIfEmpty(): Promise<{ seeded: number }> {
   if (countErr) throw new Error("Impossible de vérifier vos offres.");
   if ((count ?? 0) > 0) return { seeded: 0 };
 
-  const rows = DEMO_JOBS.map((j) => ({
+  const seedTemplates = PLATFORM_JOB_CATALOG.slice(0, 10);
+  const rows = seedTemplates.map((j) => ({
     user_id: user.id,
     company_name: j.company_name,
     position_title: j.position_title,
@@ -92,13 +34,13 @@ export async function ensureDemoJobsIfEmpty(): Promise<{ seeded: number }> {
     is_active: true,
     job_url: null,
     salary_range: null,
-    work_location: j.location.includes("Remote")
+    work_location: j.location.toLowerCase().includes("remote")
       ? ("remote" as const)
-      : j.location.includes("Hybride")
+      : j.location.toLowerCase().includes("hybride")
         ? ("hybrid" as const)
         : ("in_person" as const),
     employment_type: j.position_title.toLowerCase().includes("stagiaire")
-      ? "internship"
+      ? ("internship" as const)
       : "full_time",
   }));
 

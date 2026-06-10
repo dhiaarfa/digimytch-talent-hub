@@ -239,9 +239,9 @@ export function AdminCoursesTab() {
             }
           >
             {viewMode === "grid" ? (
-              <EntityCardImage src={img.src} alt={img.alt} variant="course" />
+              <EntityCardImage src={img.src} alt={img.alt} categoryHint={img.categoryHint} variant="course" />
             ) : (
-              <EntityCardImage src={img.src} alt={img.alt} variant="course" compact />
+              <EntityCardImage src={img.src} alt={img.alt} categoryHint={img.categoryHint} variant="course" compact />
             )}
             <div className={viewMode === "grid" ? "p-3 min-w-0" : "min-w-0 flex-1"}>
               <p className="font-medium text-sm truncate">{course.title}</p>

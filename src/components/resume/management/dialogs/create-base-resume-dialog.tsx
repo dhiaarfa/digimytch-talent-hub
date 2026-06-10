@@ -1,17 +1,29 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
+import { useDialogLeaveGuard } from "@/hooks/use-dialog-leave-guard";
+import { DiscardDraftDialog } from "@/components/ui/discard-draft-dialog";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Profile, WorkExperience, Education, Skill, Project, Resume } from "@/lib/types";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Loader2, FileText, Copy, Wand2, Upload } from "lucide-react";
 import { cn, withBasePath } from "@/lib/utils";
 import { createBaseResume } from "@/utils/actions/resumes/actions";
-import pdfToText from "react-pdftotext";
+import {
+  DIGIMYTCH_AI_MODEL_STORAGE_KEY,
+  selectBestModelForTask,
+} from "@/lib/ai-models";
+import { normalizeDigimytchOpenRouterModelId } from "@/lib/digimytch-openrouter-models";
+import {
+  CV_ACCEPT_EXTENSIONS,
+  cvExtractingLabel,
+  detectCvFileType,
+  extractTextFromCvFile,
+} from "@/lib/cv-file-extract";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,11 +59,53 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
   const [resumeText, setResumeText] = useState('');
   const router = useRouter();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+
+  const goToResume = (resumeId: string) => {
+    setOpen(false);
+    router.refresh();
+    window.location.assign(withBasePath(`/resumes/${resumeId}`));
+  };
   const [errorMessage, setErrorMessage] = useState<{ title: string; description: string }>({
     title: "",
     description: ""
   });
   const [isDragging, setIsDragging] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractingLabel, setExtractingLabel] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const createAbortedRef = useRef(false);
+
+  const hasDraft = useCallback(() => {
+    return (
+      Boolean(targetRole.trim()) ||
+      Boolean(resumeText.trim()) ||
+      currentStep === 2 ||
+      importOption !== "import-profile"
+    );
+  }, [targetRole, resumeText, currentStep, importOption]);
+
+  const {
+    confirmDiscardOpen,
+    setConfirmDiscardOpen,
+    handleOpenChange: guardHandleOpenChange,
+    confirmDiscard,
+  } = useDialogLeaveGuard({
+    isBusy: isCreating || isExtracting,
+    hasDraft,
+    onDiscard: () => {
+      createAbortedRef.current = true;
+      setTargetRole("");
+      setCurrentStep(1);
+      setImportOption("import-profile");
+      setResumeText("");
+      setIsCreating(false);
+      setIsExtracting(false);
+      setExtractingLabel("");
+    },
+    busyMessage: isCreating
+      ? "Création du CV en cours — veuillez patienter…"
+      : "Extraction du fichier en cours — veuillez patienter…",
+  });
 
   const getItemId = (type: keyof typeof selectedItems, item: WorkExperience | Education | Skill | Project, index?: number): string => {
     const baseId = (() => {
@@ -106,10 +160,8 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
     if (!targetRole.trim()) {
       setIsTargetRoleInvalid(true);
       setTimeout(() => setIsTargetRoleInvalid(false), 820);
-      toast({
-        title: "Champ obligatoire",
+      toast.error("Champ obligatoire", {
         description: "Indiquez le poste que vous visez pour continuer.",
-        variant: "destructive",
       });
       return;
     }
@@ -124,19 +176,22 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
     if (!targetRole.trim()) {
       setIsTargetRoleInvalid(true);
       setTimeout(() => setIsTargetRoleInvalid(false), 820);
-      toast({
-        title: "Champ obligatoire",
+      toast.error("Champ obligatoire", {
         description: "Indiquez le poste que vous visez pour continuer.",
-        variant: "destructive",
       });
       return;
     }
 
     try {
       setIsCreating(true);
+      createAbortedRef.current = false;
 
       if (importOption === 'import-resume') {
         if (!resumeText.trim()) {
+          toast.error("Aucun contenu", {
+            description: "Importez un fichier ou collez le texte de votre CV.",
+          });
+          setIsCreating(false);
           return;
         }
 
@@ -160,9 +215,13 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
         };
 
         // Get model and API key from local storage
-        const MODEL_STORAGE_KEY = 'resumelm-default-model';
+        const LEGACY_MODEL_KEY = 'resumelm-default-model';
         const LOCAL_STORAGE_KEY = 'resumelm-api-keys';
-        const selectedModel = localStorage.getItem(MODEL_STORAGE_KEY);
+        const selectedModel = normalizeDigimytchOpenRouterModelId(
+          localStorage.getItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY) ||
+            localStorage.getItem(LEGACY_MODEL_KEY) ||
+            selectBestModelForTask("cv")
+        );
         const storedKeys = localStorage.getItem(LOCAL_STORAGE_KEY);
         let apiKeys = [];
         try {
@@ -174,9 +233,22 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
 
         try {
           const convertedResume = await convertTextToResume(resumeText, emptyResume, targetRole, {
-            model: selectedModel || '',
+            model: selectedModel,
             apiKeys
           });
+
+          if (createAbortedRef.current) {
+            setIsCreating(false);
+            return;
+          }
+
+          const jobCount = convertedResume.work_experience?.length ?? 0;
+          if (jobCount <= 1 && resumeText.length > 800) {
+            toast.message("Import structuré", {
+              description:
+                "Vérifiez les onglets Expériences / Formation / Compétences. Si une section manque, complétez-la manuellement.",
+            });
+          }
           
           // Extract content sections and basic info for createBaseResume
           const selectedContent = {
@@ -202,14 +274,17 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
             'import-resume',
             selectedContent as Resume
           );
+
+          if (createAbortedRef.current) {
+            setIsCreating(false);
+            return;
+          }
           
-          toast({
-            title: "Success",
-            description: "Resume created successfully",
+          toast.success("CV créé", {
+            description: "Ouverture de l'éditeur…",
           });
 
-          router.push(`/resumes/${resume.id}`);
-          setOpen(false);
+          goToResume(resume.id);
           return;
         } catch (error: Error | unknown) {
           if (error instanceof Error && error.message.includes('Free plan limit reached')) {
@@ -233,10 +308,13 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
               description: "There was an issue with your API key. Please check your settings and try again."
             });
           } else {
+            const detail =
+              error instanceof Error ? error.message : "Échec de la conversion IA.";
             setErrorMessage({
-              title: "Error",
-              description: "Failed to convert resume text. Please try again."
+              title: "Conversion impossible",
+              description: detail,
             });
+            toast.error("Conversion impossible", { description: detail });
           }
           setShowErrorDialog(true);
           setIsCreating(false);
@@ -266,15 +344,16 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
         selectedContent
       );
 
+      if (createAbortedRef.current) {
+        setIsCreating(false);
+        return;
+      }
 
-
-      toast({
-        title: "Succès",
-        description: "CV créé avec succès",
+      toast.success("Succès", {
+        description: "Ouverture de l'éditeur…",
       });
 
-      router.push(`/resumes/${resume.id}`);
-      setOpen(false);
+      goToResume(resume.id);
     } catch (error) {
       console.error('Create resume error:', error);
       if (error instanceof Error && error.message.includes('Free plan limit reached')) {
@@ -309,22 +388,17 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
     });
   };
 
-  // Reset form and initialize selected items when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      // Move focus back to the trigger when closing
-      const trigger = document.querySelector('[data-state="open"]');
-      if (trigger) {
-        (trigger as HTMLElement).focus();
-      }
-    }
-    setOpen(newOpen);
     if (newOpen) {
-      setTargetRole('');
+      createAbortedRef.current = false;
+      setTargetRole("");
       setCurrentStep(1);
-      setImportOption('import-profile');
+      setImportOption("import-profile");
       initializeSelectedItems();
+      setOpen(true);
+      return;
     }
+    guardHandleOpenChange(false, setOpen);
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -337,59 +411,74 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
     }
   };
 
+  const processCvFile = async (file: File) => {
+    const category = detectCvFileType(file);
+    if (category === "unknown") {
+      toast.error("Format non supporté", {
+        description: "Utilisez PDF, Word (.docx) ou une image.",
+      });
+      return;
+    }
+    setIsExtracting(true);
+    setExtractingLabel(cvExtractingLabel(category));
+    try {
+      const { text } = await extractTextFromCvFile(file);
+      if (!text) {
+        toast.error("Aucun texte détecté", {
+          description: "Vérifiez que le fichier contient du texte lisible.",
+        });
+      } else {
+        setResumeText((prev) => (prev ? `${prev}\n\n${text}` : text));
+        toast.success("Fichier importé", {
+          description: `${text.length} caractères extraits — vérifiez le texte ci-dessous.`,
+        });
+      }
+    } catch (err) {
+      toast.error("Erreur d'extraction", {
+        description: err instanceof Error ? err.message : "Impossible de lire ce fichier.",
+      });
+    } finally {
+      setIsExtracting(false);
+      setExtractingLabel("");
+    }
+  };
+
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    const pdfFile = files.find(file => file.type === "application/pdf");
-
-    if (pdfFile) {
-      try {
-        const text = await pdfToText(pdfFile);
-        setResumeText(prev => prev + (prev ? "\n\n" : "") + text);
-      } catch {
-        toast({
-          title: "PDF Processing Error",
-          description: "Failed to extract text from the PDF. Please try again or paste the content manually.",
-          variant: "destructive",
-        });
-      }
-    } else {
-      toast({
-        title: "Invalid File",
-        description: "Please drop a PDF file.",
-        variant: "destructive",
-      });
-    }
+    const file = Array.from(e.dataTransfer.files)[0];
+    if (file) await processCvFile(file);
   };
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === "application/pdf") {
-      try {
-        const text = await pdfToText(file);
-        setResumeText(prev => prev + (prev ? "\n\n" : "") + text);
-      } catch {
-        toast({
-          title: "PDF Processing Error",
-          description: "Failed to extract text from the PDF. Please try again or paste the content manually.",
-          variant: "destructive",
-        });
-      }
-    }
+    if (file) await processCvFile(file);
+    e.target.value = "";
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className={cn(
+      <DialogContent
+        className={cn(
         "sm:max-w-[700px] p-0 max-h-[85vh] overflow-y-auto",
         "bg-white border border-gray-200 shadow-lg rounded-lg"
-      )}>
+      )}
+        onPointerDownOutside={(e) => {
+          if (isCreating || isExtracting) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isCreating || isExtracting) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isCreating || isExtracting) e.preventDefault();
+        }}
+      >
         <style jsx global>{`
           @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -501,7 +590,7 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: 'import-profile', icon: Copy, label: 'Depuis le profil', desc: 'Réutiliser les données du profil' },
-                    { id: 'import-resume', icon: Upload, label: 'Importer un CV', desc: 'PDF ou texte collé' },
+                    { id: 'import-resume', icon: Upload, label: 'Importer un CV', desc: 'PDF, Word ou image' },
                     { id: 'scratch', icon: Wand2, label: 'Vierge', desc: 'Partir de zéro' }
                   ].map((option) => (
                     <div key={option.id}>
@@ -604,12 +693,12 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
                                             <div className="text-xs font-medium">{(item as Skill).category}</div>
                                             <div className="flex flex-wrap gap-1 mt-1">
                                               {(item as Skill).items.slice(0, 3).map((skill: string, index: number) => (
-                                                <Badge key={index} variant="secondary" className="text-[10px] px-1 py-0">
+                                                <Badge key={index} variant="secondary" className="text-xs px-1 py-0">
                                                   {skill}
                                                 </Badge>
                                               ))}
                                               {(item as Skill).items.length > 3 && (
-                                                <span className="text-[10px] text-gray-500">+{(item as Skill).items.length - 3} more</span>
+                                                <span className="text-xs text-gray-500">+{(item as Skill).items.length - 3} more</span>
                                               )}
                                             </div>
                                           </div>
@@ -630,29 +719,56 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
                 {/* Resume Import */}
                 {importOption === 'import-resume' && (
                   <div className="space-y-3">
-                    <label
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="sr-only"
+                      accept={CV_ACCEPT_EXTENSIONS}
+                      onChange={handleFileInput}
+                    />
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+                      }}
+                      onClick={() => !isExtracting && fileInputRef.current?.click()}
                       onDragEnter={handleDrag}
                       onDragLeave={handleDrag}
                       onDragOver={handleDrag}
                       onDrop={handleDrop}
                       className={cn(
                         "border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-2 transition-colors cursor-pointer",
-                        isDragging ? "border-purple-500 bg-purple-50" : "border-gray-300 hover:border-purple-400"
+                        isDragging ? "border-purple-500 bg-purple-50" : "border-gray-300 hover:border-purple-400",
+                        isExtracting && "pointer-events-none opacity-80"
                       )}
                     >
-                      <input type="file" className="hidden" accept="application/pdf" onChange={handleFileInput} />
-                      <Upload className="w-8 h-8 text-purple-500" />
-                      <div className="text-center">
-                        <p className="text-sm font-medium">Drop PDF here or click to browse</p>
-                        <p className="text-xs text-gray-500">Supports PDF files only</p>
-                      </div>
-                    </label>
+                      {isExtracting ? (
+                        <>
+                          <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                          <p className="text-sm font-medium text-purple-700">{extractingLabel}</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-purple-500" />
+                          <div className="text-center">
+                            <p className="text-sm font-medium">Glissez votre CV ou cliquez pour parcourir</p>
+                            <p className="text-xs text-gray-500">PDF, Word (.docx) ou image (OCR)</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <Textarea
                       value={resumeText}
                       onChange={(e) => setResumeText(e.target.value)}
-                      placeholder="Or paste your resume text here..."
+                      placeholder="Le texte extrait apparaîtra ici — vous pouvez aussi coller votre CV…"
                       className="min-h-[120px] text-sm"
                     />
+                    {resumeText.trim() ? (
+                      <p className="text-xs text-purple-700 font-medium">
+                        {resumeText.trim().length} caractères prêts à l&apos;import
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -713,5 +829,11 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
         </div>
       </DialogContent>
     </Dialog>
+    <DiscardDraftDialog
+      open={confirmDiscardOpen}
+      onOpenChange={setConfirmDiscardOpen}
+      onConfirm={() => confirmDiscard(setOpen)}
+    />
+    </>
   );
 } 

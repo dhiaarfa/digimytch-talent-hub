@@ -67,7 +67,7 @@ export function AdminImportTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [{ role: "user", content: prompt }],
-          model: "deepseek/deepseek-chat:free",
+          model: "openrouter/free",
           maxTokens: 500,
           stream: false,
         }),

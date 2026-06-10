@@ -29,7 +29,7 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
           <AppImage src="/digimytch-logo.png" alt="Digimytch" width={32} height={32} className="rounded" priority />
           <span className="font-display font-bold text-white text-sm">
             Talent Hub
-            <span className="block text-[10px] font-normal text-white/60">{PFE_TAGLINE}</span>
+            <span className="block text-xs font-normal text-white/60">{PFE_TAGLINE}</span>
           </span>
         </Link>
         <nav className="hidden md:flex items-center gap-6" aria-label="Navigation">
@@ -52,11 +52,6 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
           <AuthDialog defaultTab="login">
             <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
               {isEn ? "Login" : "Connexion"}
-            </Button>
-          </AuthDialog>
-          <AuthDialog defaultTab="signup">
-            <Button size="sm" className="btn-digi-primary">
-              {isEn ? "Access demo" : "Accéder à la démo"}
             </Button>
           </AuthDialog>
         </div>
