@@ -61,58 +61,66 @@ export async function login(formData: FormData): Promise<AuthResult> {
 
 // Signup
 export async function signup(formData: FormData): Promise<AuthResult> {
-  const supabase = await createServiceClient();
+  try {
+    const supabase = await createServiceClient();
 
-  const data = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-    options: {
-      data: {
-        full_name: formData.get('name') as string,
-      },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`
+    const data = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
+      options: {
+        data: {
+          full_name: formData.get('name') as string,
+        },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`
+      }
     }
-  }
-  const { data: signupData, error: signupError } = await supabase.auth.signUp(data);
+    console.log('[v0] Signup attempt with email:', data.email);
+    console.log('[v0] Site URL:', process.env.NEXT_PUBLIC_SITE_URL);
+    
+    const { data: signupData, error: signupError } = await supabase.auth.signUp(data);
 
-  if (signupError) {
-    // Log detailed error information
-    console.error('Signup Error Details:', {
-      code: signupError.code,
-      message: signupError.message,
-      status: signupError.status,
-      name: signupError.name
-    });
-    return { success: false, error: signupError.message }
-  }
-
-  // In production, subscriptions are managed via Stripe webhooks
-  if (signupData.user && AUTO_PRO_SUBSCRIPTION) {
-    const { error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .upsert({
-        user_id: signupData.user.id,
-        subscription_plan: 'pro',
-        subscription_status: 'active',
-      }, { onConflict: 'user_id' });
-
-    if (subscriptionError) {
-      console.warn('Failed to create pro subscription:', subscriptionError.message);
-      // Don't fail signup if subscription creation fails
+    if (signupError) {
+      // Log detailed error information
+      console.error('[v0] Signup Error Details:', {
+        code: signupError.code,
+        message: signupError.message,
+        status: signupError.status,
+        name: signupError.name
+      });
+      return { success: false, error: signupError.message }
     }
-  }
 
-  if (signupData.user) {
-    await captureServerAnalyticsEvent({
-      distinctId: signupData.user.id,
-      event: AnalyticsEvents.SignupCompleted,
-      properties: {
-        signup_provider: "email",
-      },
-    });
-  }
+    // In production, subscriptions are managed via Stripe webhooks
+    if (signupData.user && AUTO_PRO_SUBSCRIPTION) {
+      const { error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: signupData.user.id,
+          subscription_plan: 'pro',
+          subscription_status: 'active',
+        }, { onConflict: 'user_id' });
 
-  return { success: true }
+      if (subscriptionError) {
+        console.warn('Failed to create pro subscription:', subscriptionError.message);
+        // Don't fail signup if subscription creation fails
+      }
+    }
+
+    if (signupData.user) {
+      await captureServerAnalyticsEvent({
+        distinctId: signupData.user.id,
+        event: AnalyticsEvents.SignupCompleted,
+        properties: {
+          signup_provider: "email",
+        },
+      });
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('[v0] Signup catch block error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' }
+  }
 } 
 
 export async function loginWithState(
