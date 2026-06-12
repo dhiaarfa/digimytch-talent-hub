@@ -1,5 +1,5 @@
 import type { LanguageModelV1 } from "ai";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { hasOpenRouterServerKey } from "@/lib/openrouter-config";
 
 export function isCiMockAI(): boolean {
@@ -11,7 +11,7 @@ export function isLocalDevMockAI(): boolean {
   if (isCiMockAI()) return true;
   return (
     process.env.NODE_ENV === "development" &&
-    isDigimytchTalentHub() &&
+    IS_DIGIMYTCH_TALENT_HUB &&
     !hasOpenRouterServerKey()
   );
 }

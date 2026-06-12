@@ -1,4 +1,5 @@
 'use server'
+import { logger } from "@/lib/logger";
 
 import { createClient, createServiceClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
@@ -77,7 +78,7 @@ export async function signup(formData: FormData): Promise<AuthResult> {
 
   if (signupError) {
     // Log detailed error information
-    console.error('Signup Error Details:', {
+    logger.error('Signup Error Details:', {
       code: signupError.code,
       message: signupError.message,
       status: signupError.status,
@@ -97,7 +98,7 @@ export async function signup(formData: FormData): Promise<AuthResult> {
       }, { onConflict: 'user_id' });
 
     if (subscriptionError) {
-      console.warn('Failed to create pro subscription:', subscriptionError.message);
+      logger.warn('Failed to create pro subscription:', subscriptionError.message);
       // Don't fail signup if subscription creation fails
     }
   }
@@ -234,6 +235,39 @@ export async function signInWithGithub(): Promise<GithubAuthResult> {
   }
 } 
 
+// Google Sign In
+export async function signInWithGoogle(): Promise<GithubAuthResult> {
+  const supabase = await createClient();
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      }
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data?.url) {
+      return { success: true, url: data.url };
+    }
+
+    return { success: false, error: 'Failed to get OAuth URL' };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    };
+  }
+}
+
 // Check if user is authenticated
 export async function checkAuth(): Promise<{ 
   authenticated: boolean; 
@@ -245,7 +279,7 @@ export async function checkAuth(): Promise<{
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error || !user) {
-      console.error('Auth check error:', error);
+      logger.error('Auth check error:', error);
       return { authenticated: false };
     }
 
@@ -257,7 +291,7 @@ export async function checkAuth(): Promise<{
       }
     };
   } catch (error) {
-    console.error('Unexpected error during auth check:', error);
+    logger.error('Unexpected error during auth check:', error);
     return { authenticated: false };
   }
 } 
@@ -273,7 +307,7 @@ export async function getUserId(): Promise<string | null> {
     }
     return user.id;
   } catch (error) {
-    console.error('Error getting user ID:', error);
+    logger.error('Error getting user ID:', error);
     return null;
   }
 } 
@@ -300,7 +334,7 @@ export async function getSubscriptionStatus(): Promise<{
       .single();
 
     if (error) {
-      console.error('Error fetching subscription:', error);
+      logger.error('Error fetching subscription:', error);
       return { hasSubscription: false, error: error.message };
     }
 
@@ -310,7 +344,7 @@ export async function getSubscriptionStatus(): Promise<{
       status: subscription?.subscription_status
     };
   } catch (error) {
-    console.error('Error checking subscription status:', error);
+    logger.error('Error checking subscription status:', error);
     return { 
       hasSubscription: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
@@ -356,7 +390,7 @@ export async function deleteUserAccount(formData: FormData) {
     // Sign out after deletion
     await authClient.auth.signOut()
   } catch (error) {
-    console.error('Account deletion failed:', error)
+    logger.error('Account deletion failed:', error)
     throw error
   }
 

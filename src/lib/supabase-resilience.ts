@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 
@@ -27,7 +28,7 @@ export async function getAuthUserWithTimeout(
     return { user: data.user, unavailable: false };
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
-      console.warn(
+      logger.warn(
         "[Digimytch] Supabase auth unreachable or timed out:",
         error instanceof Error ? error.message : error
       );

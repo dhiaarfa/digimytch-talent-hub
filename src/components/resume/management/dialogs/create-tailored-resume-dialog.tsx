@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ import { cn, withBasePath } from "@/lib/utils";
 import { resumeLabels, tResume } from "@/lib/resume-labels";
 import { jobToDescriptionText, jobToSimplifiedListing } from "@/lib/job-listing";
 import { selectBestModelForTask, type ApiKey } from "@/lib/ai-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 
 interface CreateTailoredResumeDialogProps {
   children: React.ReactNode;
@@ -41,7 +42,7 @@ function resolveTailorAiConfig() {
   const LOCAL_STORAGE_KEY = 'resumelm-api-keys';
   const selectedModel =
     (typeof window !== 'undefined' ? localStorage.getItem(MODEL_STORAGE_KEY) : null) ||
-    (isDigimytchTalentHub() ? selectBestModelForTask('cv') : '');
+    (IS_DIGIMYTCH_TALENT_HUB ? selectBestModelForTask('cv') : '');
   const storedKeys =
     typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEY) : null;
   let apiKeys: ApiKey[] = [];
@@ -234,7 +235,7 @@ export function CreateTailoredResumeDialog({
           try {
             apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
           } catch (error) {
-            console.error('Error parsing API keys:', error);
+            logger.error('Error parsing API keys:', error);
           }
 
           try {
@@ -404,7 +405,7 @@ export function CreateTailoredResumeDialog({
       );
       setOpen(false);
     } catch (error: unknown) {
-      console.error('Failed to create resume:', error);
+      logger.error('Failed to create resume:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create resume",

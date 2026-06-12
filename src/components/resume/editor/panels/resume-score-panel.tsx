@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import { motion } from "framer-motion";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
@@ -18,7 +19,7 @@ import { friendlyAIErrorMessage } from "@/lib/ai/friendly-error";
 import { Resume, Job as JobType } from "@/lib/types";
 import { useApiKeys, useDefaultModel } from "@/hooks/use-api-keys";
 import { toast } from "@/hooks/use-toast";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { selectBestModelForTask } from "@/lib/ai-models";
 import { buildHeuristicResumeScore } from "@/lib/resume-score-heuristic";
 import type { JobScoringInput } from "@/lib/resume-score-heuristic";
@@ -186,7 +187,7 @@ function getStoredScores(resumeId: string, signature: string): ResumeScoreMetric
 
     return storedEntry.score;
   } catch (error) {
-    console.error('Error reading stored scores:', error);
+    logger.error('Error reading stored scores:', error);
     return null;
   }
 }
@@ -213,7 +214,7 @@ function updateStoredScores(resumeId: string, entry: StoredScoreEntry) {
     scores.set(resumeId, entry);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(Array.from(scores)));
   } catch (error) {
-    console.error('Error storing score:', error);
+    logger.error('Error storing score:', error);
   }
 }
 
@@ -275,7 +276,7 @@ export default function ResumeScorePanel({
   const { defaultModel } = useDefaultModel();
   const scoringModel = useMemo(() => {
     if (defaultModel?.trim()) return defaultModel;
-    if (isDigimytchTalentHub()) return selectBestModelForTask("cv");
+    if (IS_DIGIMYTCH_TALENT_HUB) return selectBestModelForTask("cv");
     return "";
   }, [defaultModel]);
   const scoreSignature = useMemo(
@@ -306,7 +307,7 @@ export default function ResumeScorePanel({
 
     setIsCalculating(true);
 
-    if (isDigimytchTalentHub()) {
+    if (IS_DIGIMYTCH_TALENT_HUB) {
       const preview = buildHeuristicResumeScore(
         getResumeForScoring(resume),
         getJobForScoring(job) as JobScoringInput | null
@@ -369,7 +370,7 @@ export default function ResumeScorePanel({
         });
       }
     } catch (error) {
-      console.error("Error generating score:", error);
+      logger.error("Error generating score:", error);
       toast({
         title: copy.scoreFailed,
         description: friendlyAIErrorMessage(error),

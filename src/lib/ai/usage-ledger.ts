@@ -1,10 +1,11 @@
+import { logger } from "@/lib/logger";
 import type { LanguageModelUsage, LanguageModelV1 } from "ai";
 
 import { checkRateLimit, RateLimitError, RateLimitBackendError } from "@/lib/rateLimiter";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { captureServerAnalyticsEvent } from "@/lib/analytics/server";
 import { getDefaultModel, getFastCheapFreeModel } from "@/lib/ai-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import {
   resolveAIRequest,
   type ResolvedAIRequest,
@@ -52,13 +53,14 @@ export async function recordAIUsageStarted(input: {
 
   if (error) {
     if (process.env.NODE_ENV === "development") {
-      console.warn("[AI ledger] insert skipped:", error.message);
+      logger.warn("[AI ledger] insert skipped:", error.message);
       return "dev-ledger-skip";
     }
     throw error;
   }
 
-  await captureServerAnalyticsEvent({
+  // Fire-and-forget — analytics must not block the AI response path
+  void captureServerAnalyticsEvent({
     distinctId: input.userId,
     event: AnalyticsEvents.AIRequestStarted,
     properties: {
@@ -100,7 +102,8 @@ export async function recordAIUsageFinished(input: {
     throw error;
   }
 
-  await captureServerAnalyticsEvent({
+  // Fire-and-forget — analytics must not block the AI response path
+  void captureServerAnalyticsEvent({
     distinctId: data.user_id,
     event: input.status === "succeeded"
       ? AnalyticsEvents.AIRequestSucceeded
@@ -182,7 +185,7 @@ export async function startAIUsageRequest(input: {
   resolved: ResolvedAIRequest;
 }> {
   let requestedModel = input.config?.model ?? getDefaultModel(input.isPro);
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     requestedModel = normalizeDigimytchOpenRouterModelId(requestedModel);
   }
 
@@ -210,7 +213,7 @@ export async function startAIUsageRequest(input: {
     });
   } catch (firstError) {
     const freeFallback = getFastCheapFreeModel();
-    if (isDigimytchTalentHub() && requestedModel !== freeFallback) {
+    if (IS_DIGIMYTCH_TALENT_HUB && requestedModel !== freeFallback) {
       try {
         requestedModel = freeFallback;
         resolved = resolveAIRequest({

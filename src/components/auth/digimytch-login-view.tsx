@@ -38,11 +38,13 @@ export function DigimytchLoginView({ showErrorDialog }: DigimytchLoginViewProps)
 
         <div className="relative z-10 mx-auto px-4 sm:px-6 lg:px-24 flex flex-col justify-center pt-16 pb-12">
           <Hero />
-          <p className="text-center text-sm text-muted-foreground mt-8 max-w-md mx-auto">
-            Prototype PFE — compte démo :{" "}
-            <span className="font-mono text-foreground">admin@admin.com</span> /{" "}
-            <span className="font-mono text-foreground">Admin123</span>
-          </p>
+          {process.env.NODE_ENV === "development" && (
+            <p className="text-center text-sm text-muted-foreground mt-8 max-w-md mx-auto">
+              Prototype PFE — compte démo :{" "}
+              <span className="font-mono text-foreground">admin@admin.com</span> /{" "}
+              <span className="font-mono text-foreground">Admin123</span>
+            </p>
+          )}
         </div>
 
         <Footer variant="static" />

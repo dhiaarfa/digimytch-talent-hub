@@ -1,4 +1,5 @@
 "use server";
+import { logger } from "@/lib/logger";
 
 import { createClient } from "@/utils/supabase/server";
 import type { Course } from "@/lib/types";
@@ -17,7 +18,7 @@ export async function listCourses(): Promise<Course[]> {
     .order("title", { ascending: true });
 
   if (error) {
-    console.error("[listCourses]", error);
+    logger.error("[listCourses]", error);
     throw new Error(
       "Impossible de charger le catalogue formations. Appliquez la migration Supabase (digimytch_courses_applications)."
     );

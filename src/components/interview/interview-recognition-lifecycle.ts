@@ -1,11 +1,13 @@
-/** Delay before opening the mic after TTS ends (avoids echo / race with speech synthesis). */
-export const LISTENING_START_DELAY_MS = 450;
+/** Delay before opening the mic after TTS ends. Zero is fine — browser TTS stops before STT starts. */
+export const LISTENING_START_DELAY_MS = 0;
 
 /** Delay before restarting a single-shot recognition session after `onend`. */
-export const RECOGNITION_RESTART_DELAY_MS = 200;
+export const RECOGNITION_RESTART_DELAY_MS = 80;
 
-/** Auto-submit after this much silence once the user has spoken. */
-export const SILENCE_SUBMIT_MS = 2000;
+/** Auto-submit after this much silence once the user has spoken.
+ *  2800ms gives enough room for natural pauses mid-sentence.
+ */
+export const SILENCE_SUBMIT_MS = 2800;
 
 export const MIN_TRANSCRIPT_CHARS = 2;
 

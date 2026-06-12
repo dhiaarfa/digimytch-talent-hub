@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { ViewModeToggle, type ViewMode } from "@/components/ui/view-mode-toggle";
 import { CourseCard } from "@/components/digimytch/course-card";
+import { BookOpen, Zap, Building2, Star } from "lucide-react";
 import { SkillGapChips } from "@/components/digimytch/skill-gap-chips";
 
 type RankedItem = {
@@ -91,8 +92,60 @@ export function FormationsHub({ courses, ranked, gapUnion }: FormationsHubProps)
     [filtered, priorityIds]
   );
 
+  const digimytchCount = uniqueCourses.filter((c) => c.is_digimytch).length;
+  const providerCount = providers.length;
+  const recommendedCount = topRanked.length;
+
   return (
     <div className="space-y-6">
+      {/* Visual stats banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          {
+            icon: BookOpen,
+            value: uniqueCourses.length,
+            label: "formations",
+            color: "text-[#030A8C]",
+            bg: "bg-[#030A8C]/8",
+            iconBg: "bg-[#030A8C]/12",
+          },
+          {
+            icon: Zap,
+            value: recommendedCount,
+            label: "recommandees",
+            color: "text-amber-700",
+            bg: "bg-amber-50",
+            iconBg: "bg-amber-100",
+          },
+          {
+            icon: Building2,
+            value: providerCount,
+            label: "organismes",
+            color: "text-violet-700",
+            bg: "bg-violet-50",
+            iconBg: "bg-violet-100",
+          },
+          {
+            icon: Star,
+            value: digimytchCount,
+            label: "Digimytch",
+            color: "text-[#D10069]",
+            bg: "bg-[#D10069]/8",
+            iconBg: "bg-[#D10069]/12",
+          },
+        ].map(({ icon: Icon, value, label, color, bg, iconBg }) => (
+          <div key={label} className={`rounded-xl border border-[var(--digi-border)] ${bg} p-3 flex items-center gap-3`}>
+            <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+              <Icon className={`h-5 w-5 ${color}`} aria-hidden />
+            </div>
+            <div>
+              <p className={`text-xl font-bold ${color} leading-none`}>{value}</p>
+              <p className="text-xs text-[var(--digi-muted)] mt-0.5">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {gapUnion.length > 0 && (
         <Card>
           <CardHeader className="pb-2">

@@ -29,17 +29,22 @@ function dirSizeMb(dirPath) {
   }
 
   if (process.platform === "win32") {
+    // Get-ChildItem -Recurse is extremely slow on Windows with large .next/ dirs.
+    // Use robocopy /L (list-only) which is orders of magnitude faster.
+    const tmp = resolve(root, ".auto-maintain-dummy-dest");
     const r = spawnSync(
-      "powershell",
-      [
-        "-NoProfile",
-        "-Command",
-        `(Get-ChildItem -LiteralPath '${dirPath.replace(/'/g, "''")}' -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB`,
-      ],
-      { encoding: "utf8", shell: true }
+      "robocopy",
+      [dirPath, tmp, "/L", "/S", "/NJH", "/NJS", "/BYTES"],
+      { encoding: "utf8", shell: false }
     );
-    const n = parseFloat(String(r.stdout).trim());
-    return Number.isFinite(n) ? n : 0;
+    // robocopy outputs a summary line: "  Bytes :  123456789  ..."
+    const match = String(r.stdout).match(/Bytes\s*:\s*([\d.]+)/i);
+    if (match) {
+      const bytes = parseFloat(match[1]);
+      return Number.isFinite(bytes) ? bytes / (1024 * 1024) : 0;
+    }
+    // Fallback: if robocopy not available, skip check on Windows
+    return 0;
   }
 
   const r = spawnSync("du", ["-sm", dirPath], { encoding: "utf8" });

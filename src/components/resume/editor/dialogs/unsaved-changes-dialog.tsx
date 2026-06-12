@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { resumeLabels } from "@/lib/resume-labels";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 
 interface UnsavedChangesDialogProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export function UnsavedChangesDialog({
   isSaving = false,
 }: UnsavedChangesDialogProps) {
   const L = resumeLabels();
-  const digi = isDigimytchTalentHub();
+  const digi = IS_DIGIMYTCH_TALENT_HUB;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>

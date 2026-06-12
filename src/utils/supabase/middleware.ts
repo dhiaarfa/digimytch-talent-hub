@@ -1,8 +1,9 @@
+import { logger } from "@/lib/logger";
 import { createServerClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSubscriptionAccessState } from '@/lib/subscription-access'
-import { isAdminUser, isDigimytchTalentHub } from '@/lib/digimytch-config'
+import { isAdminUser, IS_DIGIMYTCH_TALENT_HUB } from '@/lib/digimytch-config'
 import { isAdminRoute, isCandidateRoute } from '@/lib/admin-routes'
 import {
   getAuthTimeoutForRequest,
@@ -54,7 +55,7 @@ function missingSupabaseConfigResponse(request: NextRequest): NextResponse {
 
 async function updateSessionInner(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname
-  const digimytch = isDigimytchTalentHub()
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB
   const isPassthrough = isDataPassthroughRequest(request)
   const hasAuthCookie = hasSupabaseAuthCookieFromRequest(request)
 
@@ -62,7 +63,7 @@ async function updateSessionInner(request: NextRequest): Promise<NextResponse> {
   const anonKey = getSupabaseAnonKeySafe()
   if (!supabaseUrl || !anonKey) {
     if (DEBUG) {
-      console.warn('[middleware] Supabase env missing on', pathname)
+      logger.warn('[middleware] Supabase env missing on', pathname)
     }
     return missingSupabaseConfigResponse(request)
   }
@@ -109,7 +110,7 @@ async function updateSessionInner(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     unavailable = true
     if (DEBUG) {
-      console.warn('[middleware] Supabase auth error:', error)
+      logger.warn('[middleware] Supabase auth error:', error)
     }
   }
 
@@ -129,7 +130,7 @@ async function updateSessionInner(request: NextRequest): Promise<NextResponse> {
   }
 
   if (unavailable && (isPublicAppRoute(pathname) || hasAuthCookie)) {
-    if (DEBUG) console.warn('Supabase unreachable — allowing request:', pathname)
+    if (DEBUG) logger.warn('Supabase unreachable — allowing request:', pathname)
     supabaseResponse.headers.set('x-supabase-status', 'unavailable')
     return supabaseResponse
   }
@@ -202,7 +203,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   try {
     return await updateSessionInner(request)
   } catch (error) {
-    console.error('[middleware] unhandled error:', error)
+    logger.error('[middleware] unhandled error:', error)
     const pathname = request.nextUrl.pathname
     if (isPublicAppRoute(pathname)) {
       return NextResponse.next()

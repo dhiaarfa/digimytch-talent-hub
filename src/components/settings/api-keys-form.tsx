@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils"
 import replaceSpecialCharacters from 'replace-special-characters'
 import { ModelSelector } from "@/components/shared/model-selector"
 import { AI_MODELS, MODEL_DESIGNATIONS, getProvidersArray } from "@/lib/ai-models"
-import { isDigimytchTalentHub } from "@/lib/digimytch-config"
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config"
 import { useApiKeys, useDefaultModel } from "@/hooks/use-api-keys"
 
 export function ApiKeysForm({ isProPlan }: { isProPlan: boolean }) {
-  const digimytch = isDigimytchTalentHub()
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB
   // Use synchronized hooks for API keys and default model
   const { apiKeys, setApiKeys } = useApiKeys()
   const { defaultModel, setDefaultModel } = useDefaultModel()
@@ -36,7 +36,7 @@ export function ApiKeysForm({ isProPlan }: { isProPlan: boolean }) {
     
     // Only set default if there's no model selected
     if (!defaultModel) {
-      const digimytch = isDigimytchTalentHub()
+      const digimytch = IS_DIGIMYTCH_TALENT_HUB
       if (digimytch || !isProPlan) {
         setDefaultModel(MODEL_DESIGNATIONS.DEFAULT_FREE)
       } else {
@@ -79,7 +79,7 @@ export function ApiKeysForm({ isProPlan }: { isProPlan: boolean }) {
         case 'openai':
           return MODEL_DESIGNATIONS.FRONTIER
         case 'openrouter':
-          return isDigimytchTalentHub()
+          return IS_DIGIMYTCH_TALENT_HUB
             ? MODEL_DESIGNATIONS.FAST_CHEAP_FREE
             : MODEL_DESIGNATIONS.BALANCED
         default:

@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -74,7 +75,7 @@ export function TailoredJobCard({
         
         setInternalJob(jobData);
       } catch (error) {
-        console.error('Error fetching job:', error);
+        logger.error('Error fetching job:', error);
         if (error instanceof Error && error.message !== 'No rows returned') {
           setInternalJob(null);
         }
@@ -141,7 +142,7 @@ export function TailoredJobCard({
       try {
         apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
       } catch (error) {
-        console.error('Error parsing API keys:', error);
+        logger.error('Error parsing API keys:', error);
       }
 
       // Format job listing using AI
@@ -170,7 +171,7 @@ export function TailoredJobCard({
       router.refresh();
 
     } catch (error) {
-      console.error('Error creating job:', error);
+      logger.error('Error creating job:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create job",
@@ -499,7 +500,7 @@ export function TailoredJobAccordion({
       await deleteJob(resume.job_id);
       router.refresh();
     } catch (error) {
-      console.error('Error deleting job:', error);
+      logger.error('Error deleting job:', error);
       toast({
         title: "Error",
         description: "Failed to delete job",

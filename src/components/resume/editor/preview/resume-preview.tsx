@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 /**
  * Resume Preview — generates PDF with @react-pdf/renderer, displays via native iframe
@@ -97,7 +98,7 @@ export const ResumePreview = memo(function ResumePreview({
 
         if (!cancelled) setPreviewUrl(objectUrl);
       } catch (error) {
-        console.error("[ResumePreview] PDF generation failed:", error);
+        logger.error("[ResumePreview] PDF generation failed:", error);
         if (!cancelled) {
           setPdfError("Impossible de générer l'aperçu PDF.");
           setPreviewUrl(null);

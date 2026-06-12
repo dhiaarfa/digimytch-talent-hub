@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2 } from "lucide-react"
 import { useFormStatus } from 'react-dom'
 import { deleteUserAccount } from "@/app/auth/login/actions"
-import { isDigimytchTalentHub } from "@/lib/digimytch-config"
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config"
 
 interface DangerZoneProps {
   subscriptionStatus?: string;
@@ -21,7 +21,7 @@ interface SubmitButtonProps {
 function SubmitButton({ isEnabled }: SubmitButtonProps) {
   const { pending } = useFormStatus()
   const isDisabled = pending || !isEnabled
-  const digimytch = isDigimytchTalentHub()
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB
 
   return (
     <AlertDialogAction
@@ -38,7 +38,7 @@ function SubmitButton({ isEnabled }: SubmitButtonProps) {
 export function DangerZone({ subscriptionStatus }: DangerZoneProps) {
   const [confirmation, setConfirmation] = useState("")
   const isConfirmed = confirmation === "DELETE"
-  const digimytch = isDigimytchTalentHub()
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB
 
   return (
     <div className="space-y-6">

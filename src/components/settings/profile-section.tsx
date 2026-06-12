@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/logger";
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, User, Save } from "lucide-react";
@@ -58,7 +59,7 @@ export function ProfileSection({ user }: { user: ProfileSectionUser }) {
       toast.success("Photo de profil mise à jour");
       router.refresh();
     } catch (err) {
-      console.error("Avatar upload failed:", err);
+      logger.error("Avatar upload failed:", err);
       toast.error("Erreur lors de l'upload de la photo.");
     } finally {
       setIsUploading(false);
@@ -89,7 +90,7 @@ export function ProfileSection({ user }: { user: ProfileSectionUser }) {
       toast.success("Nom enregistré");
       router.refresh();
     } catch (err) {
-      console.error("Profile name save failed:", err);
+      logger.error("Profile name save failed:", err);
       toast.error("Impossible d'enregistrer le nom.");
     } finally {
       setIsSaving(false);

@@ -5,6 +5,11 @@ import { Star } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 
+// Module-level cache — shared across all instances, TTL 60 s
+let _cachedData: { points: number; total_earned: number } | null = null;
+let _cacheUserId: string | null = null;
+let _cacheExpiry = 0;
+
 interface LoyaltyData {
   points: number;
   total_earned: number;
@@ -47,12 +52,28 @@ export function LoyaltyPointsBadge({
     void (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Return cached value if still fresh for this user
+      if (
+        _cachedData !== null &&
+        _cacheUserId === user.id &&
+        Date.now() < _cacheExpiry
+      ) {
+        setData(_cachedData);
+        return;
+      }
+
       const { data: lp } = await supabase
         .from("loyalty_points")
         .select("points, total_earned")
         .eq("user_id", user.id)
         .maybeSingle();
-      setData(lp ?? { points: 0, total_earned: 0 });
+
+      const result = lp ?? { points: 0, total_earned: 0 };
+      _cachedData = result;
+      _cacheUserId = user.id;
+      _cacheExpiry = Date.now() + 60_000; // 60 s TTL
+      setData(result);
     })();
   }, []);
 

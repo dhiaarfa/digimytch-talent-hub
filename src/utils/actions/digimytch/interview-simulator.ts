@@ -4,7 +4,7 @@ import { generateText, type CoreMessage } from "ai";
 import type { AIConfig } from "@/lib/ai-models";
 import { runTrackedAIRequest } from "@/lib/ai/run-tracked-request";
 import {
-  getDigimytchModelFallbackChain,
+  getInterviewModelFallbackChain,
   selectDigimytchModelForTask,
 } from "@/lib/digimytch-openrouter-models";
 import {
@@ -62,12 +62,82 @@ async function getPlanState() {
   return { isPro: IS_DIGIMYTCH_TALENT_HUB || plan === "pro", userId: id ?? "" };
 }
 
+
+/**
+ * Strip CoT from a debrief (multi-paragraph). Only removes obvious reasoning
+ * lines at the TOP of the response, preserving the full structured content.
+ */
+function cleanDebriefReply(raw: string): string {
+  const lines = raw.trim().split(/\r?\n/);
+  // Drop leading lines that look like reasoning (until we hit a real markdown title or French sentence)
+  let start = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (!l) continue;
+    // Stop skipping once we hit a real content line
+    if (l.startsWith("**") || l.startsWith("#") || /^[A-ZÀ-Ü]/.test(l)) break;
+    // Skip if it looks like reasoning
+    if (
+      /\(\d+\)/.test(l) ||
+      /^(Count|Let[''`s]|Step \d|Voici|Je dois|Calculons|First|Greeting|Let me)/i.test(l) ||
+      /\bcount\b.*\bword|\bword.*\bcount/i.test(l)
+    ) {
+      start = i + 1;
+    }
+  }
+  return lines.slice(start).join("\n").trim() || raw.trim();
+}
+
+/**
+ * Strip chain-of-thought / reasoning leakage from a model that thinks aloud.
+ *
+ * Some free OpenRouter models (thinking models) output their internal reasoning
+ * as plain text before the actual question. This scrubs it so only the final
+ * question reaches the user.
+ */
+function cleanInterviewReply(raw: string): string {
+  const text = raw.trim();
+
+  // 1. If a quoted question exists anywhere, prefer it (most reliable signal)
+  const quoteMatch = text.match(/["\u00ab\u00bb\u201c\u201d]([^"\u00ab\u00bb\u201c\u201d]{8,200})["«»“”]/u);
+  if (quoteMatch) return quoteMatch[1].trim();
+
+  // 2. Split into lines and drop reasoning lines
+  const lines = text.split(/\r?\n/);
+  const clean = lines.filter((line) => {
+    const l = line.trim();
+    if (!l) return false;
+    // Word-counting patterns like "Bonjour(1) Alex,(2)"
+    if (/\(\d+\)/.test(l)) return false;
+    // English/French reasoning starters
+    if (/^(Count|Let[''`]s|Step \d|Voici|Vérifions|Je dois|Je vais|Calculons|D[''`]abord|Ensuite|Maintenant|Total\s*:|Mots\s*:|Résultat|First phrase|Greeting|Max \d|Let me|Let's)/i.test(l)) return false;
+    // Lines that are clearly meta-commentary
+    if (/\bcount\b.*\bword|\bword.*\bcount/i.test(l)) return false;
+    // Short filler lines (single isolated words, just punctuation)
+    if (l.length < 4 && !/[?!]/.test(l)) return false;
+    return true;
+  });
+
+  if (clean.length === 0) {
+    // All lines were stripped — last resort: take the last sentence of the raw text
+    const sentences = text.match(/[^.!?]+[.!?]+/g);
+    return sentences ? sentences[sentences.length - 1].trim() : text;
+  }
+
+  // The last surviving line is most likely the actual question
+  let result = clean[clean.length - 1].trim();
+  // Strip residual prefixes like "Now question:", "Ma question :", "Question :", etc.
+  result = result.replace(/^(now question|ma question|question|réponse|recruteur)\s*:\s*/i, "");
+  return result.trim() || text;
+}
+
 async function runInterviewAI(input: {
   route: string;
   system: string;
   messages: CoreMessage[];
   config?: AIConfig;
   maxTokens?: number;
+  cleanFn?: (raw: string) => string;
 }): Promise<InterviewActionResult> {
   const { isPro, userId } = await getPlanState();
   const sanitizedSystem = sanitizeForPrompt(input.system);
@@ -81,7 +151,8 @@ async function runInterviewAI(input: {
 
   const preferredModel =
     input.config?.model ?? selectDigimytchModelForTask("interview");
-  const chain = getDigimytchModelFallbackChain(preferredModel);
+  // Use interview-specific chain (no thinking/reasoning models that leak CoT)
+  const chain = getInterviewModelFallbackChain(preferredModel);
   const maxTokens = input.maxTokens ?? 220;
   let lastError = "Réponse vide de l'assistant.";
 
@@ -111,7 +182,8 @@ async function runInterviewAI(input: {
 
       const reply = text?.trim();
       if (reply) {
-        return { ok: true, reply };
+        const cleanedReply = (input.cleanFn ?? cleanInterviewReply)(reply);
+        return { ok: true, reply: cleanedReply };
       }
     } catch (error) {
       lastError =
@@ -180,7 +252,7 @@ export async function startInterviewSimulation(input: {
       {
         role: "user",
         content:
-          "Commence : une phrase d'accueil très courte (max 12 mots) puis UNE seule question courte (max 25 mots) adaptée à mon profil.",
+          "Commence l'entretien : présente-toi (ton prénom et ton rôle) en une phrase, salue-moi chaleureusement, puis pose-moi une première question d'ouverture en français. Sois naturelle et professionnelle.",
       },
     ],
     config: input.config,
@@ -238,11 +310,12 @@ export async function finishInterviewSimulation(input: {
     messages: [
       {
         role: "user",
-        content: `Voici la transcription complète de la simulation :\n\n${transcript}\n\nProduis le débrief structuré.`,
+        content: `Voici la transcription complète de la simulation :\n\n${transcript}\n\nProduis le bilan structuré en français uniquement.`,
       },
     ],
     config: input.config,
-    maxTokens: 500,
+    maxTokens: 700,
+    cleanFn: cleanDebriefReply,
   });
 }
 

@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { Project, Profile } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -171,7 +172,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
       try {
         apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
       } catch (error) {
-        console.error('Error parsing API keys:', error);
+        logger.error('Error parsing API keys:', error);
       }
 
       const result = await generateProjectPoints(
@@ -258,7 +259,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
       try {
         apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
       } catch (error) {
-        console.error('Error parsing API keys:', error);
+        logger.error('Error parsing API keys:', error);
       }
 
       const improvedPoint = await improveProject(point, customPrompt, {

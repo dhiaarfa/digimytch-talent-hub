@@ -1,8 +1,9 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { Resume } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Save } from "lucide-react";
+import { Download, FileDown, Loader2, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { pdf } from '@react-pdf/renderer';
 import { TextImport } from "../../text-import";
@@ -53,6 +54,29 @@ export function ResumeEditorActions({
   };
 
 
+  const handleDownloadDocx = async () => {
+    try {
+      const response = await fetch(`/api/export-resume/${resume.id}`, { credentials: "same-origin" });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Impossible de générer le document Word.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${resume.first_name || "CV"}_${resume.last_name || ""}_CV.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: tResume("Word document ready", "Document Word prêt"), description: tResume("Your resume has been exported as .docx", "Votre CV a été exporté en .docx") });
+    } catch (error) {
+      logger.error(error);
+      toast({ title: tResume("Export failed", "Échec de l'export"), description: error instanceof Error ? error.message : tResume("Unable to generate the Word document.", "Impossible de générer le document Word."), variant: "destructive" });
+    }
+  };
+
   // Dynamic color classes based on resume type
   const colors = resume.is_base_resume ? {
     // Import button colors
@@ -101,7 +125,7 @@ export function ResumeEditorActions({
 
   return (
     <div className="px-1 py-2 @container">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {/* Text Import Button */}
         <TextImport
           resume={resume}
@@ -168,7 +192,7 @@ export function ResumeEditorActions({
                       description: tResume("Your documents are being downloaded.", "Vos documents sont en cours de téléchargement."),
                     });
                   } catch (error) {
-                    console.error(error);
+                    logger.error(error);
                     toast({
                       title: tResume("Download failed", "Échec du téléchargement"),
                       description: error instanceof Error ? error.message : tResume("Unable to download your documents. Please try again.", "Impossible de télécharger. Réessayez."),
@@ -227,6 +251,16 @@ export function ResumeEditorActions({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+
+        {/* Download DOCX Button */}
+        <Button
+          onClick={() => void handleDownloadDocx()}
+          className={actionButtonClasses}
+          title={tResume("Download as Word (.docx)", "Télécharger en Word (.docx)")}
+        >
+          <FileDown className="mr-1.5 h-3.5 w-3.5" />
+          .docx
+        </Button>
 
         {/* Save Button */}
         <Button 

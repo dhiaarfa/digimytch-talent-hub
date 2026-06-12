@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 
 import React, { useCallback, useState } from 'react';
@@ -160,7 +161,7 @@ export default function ChatBot({
             }), {});
         
         addToolResult({ toolCallId: toolCall.toolCallId, result });
-        if (process.env.NODE_ENV === 'development') console.debug('Tool call READ RESUME result:', result);
+        if (process.env.NODE_ENV === 'development') logger.debug('Tool call READ RESUME result:', result);
         return result;
       }
 

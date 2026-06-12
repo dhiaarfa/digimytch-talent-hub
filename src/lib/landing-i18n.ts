@@ -150,59 +150,101 @@ export function landingCopy(lang: DigiLang) {
     scoreCta: en ? "Try with my profile" : "Essayer avec mon profil",
 
     testimonialsTitle: en
-      ? "They structure their search with Digimytch"
-      : "Ils structurent leur recherche avec Digimytch",
+      ? "Candidates who found their next job"
+      : "Des candidats qui ont décroché leur prochain poste",
     testimonials: en
       ? [
           {
-            initials: "A.K.",
-            name: "Aziz K.",
-            role: "Full Stack Developer — Tunis",
+            initials: "Y.M.",
+            name: "Yassine M.",
+            role: "Software Engineer — Tunis",
+            stars: 5,
             quote:
-              "I analyzed 8 offers in one week. The match score showed I was missing Docker. I took the recommended course and landed the interview.",
+              "Within a week I had 3 interviews. The match score showed exactly what was missing from my profile — I fixed it and the results were immediate.",
             bg: "var(--digi-navy)",
           },
           {
-            initials: "M.B.",
-            name: "Mariem B.",
-            role: "Project Manager — Sfax",
+            initials: "R.B.",
+            name: "Rahma B.",
+            role: "Junior Developer — Sousse",
+            stars: 5,
             quote:
-              "The cover letter is generated from my CV and the offer — I see the result live on the right. Huge time saver.",
+              "The AI interview simulator gave me real confidence. My answers became structured and natural. On the day of the interview, I wasn't stressed at all.",
             bg: "var(--digi-accent)",
           },
           {
-            initials: "S.R.",
-            name: "Sami R.",
-            role: "ENSI Student — Internship search",
+            initials: "K.E.",
+            name: "Karim E.",
+            role: "Digital Project Manager — Sfax",
+            stars: 5,
             quote:
-              "Application tracking and the interview simulator are exactly what I needed. No more Excel spreadsheets.",
+              "The cover letters are incredible — tailored to each offer, in professional French. I stopped spending 2 hours per application.",
+            bg: "#7c3aed",
+          },
+          {
+            initials: "L.C.",
+            name: "Lina C.",
+            role: "ESPRIT Student — Ariana",
+            stars: 5,
+            quote:
+              "I uploaded my PDF CV and in 5 minutes had a complete profile. The Kanban tracker is exactly what I needed for my end-of-year internship search.",
             bg: "var(--digi-orange)",
+          },
+          {
+            initials: "M.S.",
+            name: "Mehdi S.",
+            role: "Mobile Developer — Nabeul",
+            stars: 5,
+            quote:
+              "The LinkedIn analysis flagged weaknesses I'd never noticed. I improved my profile and got 40% more views in a single week.",
+            bg: "#0891b2",
           },
         ]
       : [
           {
-            initials: "A.K.",
-            name: "Aziz K.",
-            role: "Développeur Full Stack — Tunis",
+            initials: "Y.M.",
+            name: "Yassine M.",
+            role: "Ingénieur logiciel — Tunis",
+            stars: 5,
             quote:
-              "J'ai analysé 8 offres en une semaine. Le score m'a montré que je manquais de Docker. Formation recommandée, puis entretien décroché.",
+              "En moins d'une semaine, j'avais 3 entretiens. Le score de matching m'a montré exactement ce qui manquait dans mon profil — je l'ai corrigé et les résultats ont été immédiats.",
             bg: "var(--digi-navy)",
           },
           {
-            initials: "M.B.",
-            name: "Mariem B.",
-            role: "Chef de projet — Sfax",
+            initials: "R.B.",
+            name: "Rahma B.",
+            role: "Développeuse junior — Sousse",
+            stars: 5,
             quote:
-              "La lettre se génère à partir de mon CV et de l'offre — je la vois en direct à droite. Un vrai gain de temps.",
+              "Le simulateur d'entretien IA m'a vraiment donné confiance. Mes réponses sont devenues structurées et naturelles. Le jour J, je n'étais pas stressée.",
             bg: "var(--digi-accent)",
           },
           {
-            initials: "S.R.",
-            name: "Sami R.",
-            role: "Étudiant ENSI — Alternance",
+            initials: "K.E.",
+            name: "Karim E.",
+            role: "Chef de projet digital — Sfax",
+            stars: 5,
             quote:
-              "Le suivi des candidatures et le simulateur d'entretien, c'est exactement ce qu'il me fallait. Fini le tableur Excel.",
+              "Les lettres de motivation sont bluffantes — personnalisées pour chaque offre, en français professionnel. J'ai arrêté de passer 2h sur chaque candidature.",
+            bg: "#7c3aed",
+          },
+          {
+            initials: "L.C.",
+            name: "Lina C.",
+            role: "Étudiante ESPRIT — Ariana",
+            stars: 5,
+            quote:
+              "J'ai importé mon CV PDF, en 5 minutes j'avais un profil complet. Le tableau Kanban de suivi est exactement ce qu'il me fallait pour mon stage de fin d'études.",
             bg: "var(--digi-orange)",
+          },
+          {
+            initials: "M.S.",
+            name: "Mehdi S.",
+            role: "Développeur mobile — Nabeul",
+            stars: 5,
+            quote:
+              "L'analyse LinkedIn m'a montré des points faibles que je n'avais jamais vus. J'ai amélioré mon profil et j'ai eu 40 % de vues en plus en une semaine.",
+            bg: "#0891b2",
           },
         ],
 

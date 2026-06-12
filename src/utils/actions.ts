@@ -1,4 +1,5 @@
 'use server'
+import { logger } from "@/lib/logger";
 
 import { createClient } from "@/utils/supabase/server";
 import { Profile, ResumeSummary } from "@/lib/types";
@@ -69,13 +70,13 @@ export async function getDashboardData(): Promise<DashboardData> {
         .single();
 
       if (createError) {
-        console.error('Error creating profile:', createError);
+        logger.error('Error creating profile:', createError);
         throw new Error('Error creating user profile');
       }
 
       profile = newProfile;
     } else if (profileError) {
-      console.error('Error fetching profile:', profileError);
+      logger.error('Error fetching profile:', profileError);
       throw new Error('Error fetching dashboard data');
     }
 
@@ -92,7 +93,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     );
 
     if (resumesError) {
-      console.error('Error fetching resumes:', resumesError);
+      logger.error('Error fetching resumes:', resumesError);
       throw new Error('Error fetching dashboard data');
     }
 

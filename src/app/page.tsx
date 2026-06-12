@@ -8,7 +8,6 @@ import { TrustBanner } from "@/components/landing/talent-hub/trust-banner";
 import {
   HowItWorks,
   FeaturesGrid,
-  ScoreBridgePreview,
   TestimonialsSection,
   FAQSection,
   CTABanner,
@@ -64,7 +63,6 @@ export default async function Page() {
           <TrustBanner />
           <HowItWorks />
           <FeaturesGrid />
-          <ScoreBridgePreview />
           <TestimonialsSection />
           <FAQSection />
           <CTABanner />

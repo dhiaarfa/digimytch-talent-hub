@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { useRef } from "react";
 import Link from "next/link";
@@ -59,7 +60,7 @@ export function Logo({ className, asLink = true }: LogoProps) {
       link.href = dataUrl;
       link.click();
     } catch (error) {
-      console.error('Error exporting logo:', error);
+      logger.error('Error exporting logo:', error);
     }
   }
 
@@ -92,7 +93,7 @@ export function Logo({ className, asLink = true }: LogoProps) {
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error exporting SVG:', error);
+      logger.error('Error exporting SVG:', error);
     }
   }
 

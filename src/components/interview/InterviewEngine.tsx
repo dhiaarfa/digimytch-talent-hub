@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { Loader2, Mic, MicOff, RotateCcw, Send, Star, Volume2 } from "lucide-react";
+import { Loader2, Mic, RotateCcw, Send, Star, Volume2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ import {
   finishInterviewSimulation,
   startInterviewSimulation,
 } from "@/utils/actions/digimytch/interview-simulator";
-import { cancelSpeech, requestMicrophoneAccess, speakText } from "@/lib/speech-tts";
+import { cancelSpeech, prewarmVoices, requestMicrophoneAccess, speakText } from "@/lib/speech-tts";
 import {
   initialInterviewEngineState,
   interviewEngineReducer,
@@ -34,20 +34,27 @@ const PHASE_LABELS: Record<string, { fr: string; en: string }> = {
   error: { fr: "Erreur", en: "Error" },
 };
 
-function Waveform() {
+function MicPulse({ listening }: { listening: boolean }) {
+  if (!listening) return null;
   return (
-    <div className="flex items-end gap-0.5 h-5" aria-hidden>
-      {[1, 2, 3, 4, 3].map((h, idx) => (
+    <div className="flex items-center gap-1.5" aria-hidden>
+      {[1, 2, 3, 4, 3, 2, 1].map((h, idx) => (
         <div
           key={idx}
-          className="w-1 bg-[#D10069] rounded-full animate-pulse"
+          className="w-1 rounded-full bg-[#D10069]"
           style={{
-            height: `${h * 4}px`,
-            animationDelay: `${idx * 0.1}s`,
-            animationDuration: "0.8s",
+            height: `${h * 5}px`,
+            animation: "micBar 0.7s ease-in-out infinite alternate",
+            animationDelay: `${idx * 0.08}s`,
           }}
         />
       ))}
+      <style>{`
+        @keyframes micBar {
+          from { transform: scaleY(0.4); opacity: 0.6; }
+          to { transform: scaleY(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -122,6 +129,23 @@ export function InterviewEngine({
     }
   }, []);
 
+  const friendlyError = useCallback(
+    (raw: string): string => {
+      if (/429|rate.?limit|quota/i.test(raw))
+        return isEn
+          ? "AI quota reached — try again in a moment."
+          : "Quota IA atteint — réessayez dans un instant.";
+      if (/404|not.?found/i.test(raw))
+        return isEn ? "AI model unavailable." : "Modèle IA indisponible.";
+      if (/network|fetch|ECONNREFUSED/i.test(raw))
+        return isEn
+          ? "Network error — check your connection."
+          : "Erreur réseau — vérifiez votre connexion.";
+      return raw;
+    },
+    [isEn]
+  );
+
   const onRecognitionError = useCallback(
     (message: string) => {
       setMicDenied(true);
@@ -155,28 +179,47 @@ export function InterviewEngine({
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
-      const access = await requestMicrophoneAccess();
-      if (!access.ok) setMicDenied(true);
+      // Run mic permission and AI call in parallel — mic dialog must not block AI load
+      const micTimeout = new Promise<{ ok: boolean }>((resolve) =>
+        setTimeout(() => resolve({ ok: true }), 5000)
+      );
+      const [micResult, aiResult] = await Promise.allSettled([
+        Promise.race([requestMicrophoneAccess(), micTimeout]),
+        startInterviewSimulation({ scenario, config: aiConfig, demoMode }),
+      ]);
 
-      const result = await startInterviewSimulation({ scenario, config: aiConfig, demoMode });
+      if (micResult.status === "fulfilled" && !micResult.value.ok) setMicDenied(true);
+
+      if (aiResult.status === "rejected") {
+        dispatch({
+          type: "BOOT_FAILED",
+          error: friendlyError(
+            aiResult.reason instanceof Error ? aiResult.reason.message : "Démarrage impossible"
+          ),
+        });
+        return;
+      }
+      const result = aiResult.value;
       if (!result.ok) {
-        dispatch({ type: "BOOT_FAILED", error: result.error });
+        dispatch({ type: "BOOT_FAILED", error: friendlyError(result.error) });
         return;
       }
       dispatch({ type: "ASSISTANT_REPLY", content: result.reply });
     } catch (e) {
       dispatch({
         type: "BOOT_FAILED",
-        error: e instanceof Error ? e.message : "Démarrage impossible",
+        error: friendlyError(e instanceof Error ? e.message : "Démarrage impossible"),
       });
     } finally {
       inFlightRef.current = false;
     }
-  }, [aiConfig, scenario, demoMode]);
+  }, [aiConfig, scenario, demoMode, friendlyError]);
 
   useEffect(() => {
     if (bootedRef.current) return;
     bootedRef.current = true;
+    // Pre-warm TTS voice list so first speakText call has no latency
+    prewarmVoices();
     void runBoot();
   }, [runBoot]);
 
@@ -189,14 +232,26 @@ export function InterviewEngine({
     }
 
     cancelSpeech();
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
     speakText(state.currentQuestion, {
-      rate: 1.1,
-      pitch: 1.02,
-      onEnd: () => dispatch({ type: "SPEAK_DONE" }),
+      rate: 1.5,    // 1.5 = fast, natural, not robotic
+      pitch: 1.05,
+      lang: speechLang,
+      onEnd: () => {
+        if (safetyTimer) clearTimeout(safetyTimer);
+        dispatch({ type: "SPEAK_DONE" });
+      },
     });
 
-    return () => cancelSpeech();
-  }, [state.phase, state.currentQuestion]);
+    // 8 s fallback — Chrome sometimes never fires onend; cut wait short so mic opens fast
+    safetyTimer = setTimeout(() => dispatch({ type: "SPEAK_DONE" }), 8_000);
+
+    return () => {
+      cancelSpeech();
+      if (safetyTimer) clearTimeout(safetyTimer);
+    };
+  }, [state.phase, state.currentQuestion, speechLang]);
 
   useEffect(() => {
     if (state.phase !== "listening") {
@@ -227,10 +282,11 @@ export function InterviewEngine({
             demoMode,
           });
           if (!result.ok) {
-            dispatch({ type: "TURN_FAILED", error: result.error });
+            const msg = friendlyError(result.error);
+            dispatch({ type: "TURN_FAILED", error: msg });
             toast({
               title: isEn ? "Debrief failed" : "Débrief impossible",
-              description: result.error,
+              description: msg,
               variant: "destructive",
             });
             return;
@@ -246,10 +302,11 @@ export function InterviewEngine({
           demoMode,
         });
         if (!result.ok) {
-          dispatch({ type: "TURN_FAILED", error: result.error });
+          const msg = friendlyError(result.error);
+          dispatch({ type: "TURN_FAILED", error: msg });
           toast({
             title: "Erreur",
-            description: result.error,
+            description: msg,
             variant: "destructive",
           });
           return;
@@ -258,9 +315,10 @@ export function InterviewEngine({
       } catch (e) {
         dispatch({
           type: "TURN_FAILED",
-          error: e instanceof Error ? e.message : "Erreur réseau",
+          error: friendlyError(e instanceof Error ? e.message : "Erreur réseau"),
         });
       } finally {
+        // Guaranteed reset — prevents permanent lock if exception thrown
         inFlightRef.current = false;
       }
     };
@@ -274,6 +332,7 @@ export function InterviewEngine({
     aiConfig,
     demoMode,
     isEn,
+    friendlyError,
   ]);
 
   const handleSkipSpeech = () => {
@@ -317,13 +376,18 @@ export function InterviewEngine({
       <div className="border-b px-4 py-2 flex flex-wrap items-center justify-between gap-2 bg-white/80">
         <span
           className={cn(
-            "text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full",
+            "text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5",
             state.phase === "listening" && "bg-red-100 text-red-800",
             state.phase === "processing" && "bg-amber-100 text-amber-900",
             state.phase === "speaking" && "bg-blue-100 text-blue-900",
-            state.phase === "booting" && "bg-gray-100 text-gray-700"
+            state.phase === "booting" && "bg-gray-100 text-gray-700",
+            state.phase === "complete" && "bg-green-100 text-green-800"
           )}
+          aria-live="polite"
         >
+          {state.phase === "listening" && <Mic className="h-3 w-3" aria-hidden />}
+          {state.phase === "speaking" && <Volume2 className="h-3 w-3" aria-hidden />}
+          {state.phase === "processing" && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
           {phaseLabel}
         </span>
         <span className="text-xs text-muted-foreground">
@@ -359,13 +423,24 @@ export function InterviewEngine({
         )}
 
         {state.phase === "processing" && (
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {PHASE_LABELS.processing[isEn ? "en" : "fr"]}
-          </p>
+          <div className="flex items-end gap-2">
+            <div
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-[#030A8C] to-[#D10069] flex items-center justify-center shrink-0"
+              aria-hidden
+            >
+              <span className="text-lg">👩‍💼</span>
+            </div>
+            <div className="bg-white border border-gray-100 shadow-sm px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </div>
         )}
-
-        {state.phase === "listening" && !micDenied && <Waveform />}
 
         {state.phase === "speaking" && (
           <Button type="button" size="sm" variant="ghost" onClick={handleSkipSpeech}>
@@ -398,31 +473,61 @@ export function InterviewEngine({
       )}
 
       {state.phase !== "complete" && (
-        <div className="border-t p-4 space-y-3 bg-white">
+        <div className="border-t bg-white">
+          {/* Speaking phase — show what the recruiter is saying */}
           {state.phase === "speaking" && state.currentQuestion && (
-            <p className="text-sm text-[var(--digi-navy)] bg-blue-50/80 rounded-lg px-3 py-2 border border-blue-100">
-              <Volume2 className="inline h-4 w-4 mr-1 text-[#030A8C]" aria-hidden />
-              {state.currentQuestion}
-            </p>
+            <div className="px-4 pt-3 pb-1">
+              <p className="text-sm text-[var(--digi-navy)] bg-blue-50/80 rounded-lg px-3 py-2 border border-blue-100">
+                <Volume2 className="inline h-4 w-4 mr-1 text-[#030A8C]" aria-hidden />
+                {state.currentQuestion}
+              </p>
+            </div>
           )}
 
+          {/* Errors / warnings */}
           {state.error && (
-            <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+            <div className="px-4 pt-3 pb-0">
+              <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+            </div>
           )}
-
           {micDenied && (
-            <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
-              {isEn
-                ? "Micro unavailable — type your answers below."
-                : "Micro indisponible — répondez par le champ texte ci-dessous."}
-            </p>
+            <div className="px-4 pt-3 pb-0">
+              <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                {isEn ? "Mic unavailable — type your answer below." : "Micro indisponible — tapez votre reponse ci-dessous."}
+              </p>
+            </div>
           )}
 
-          <p className="text-xs text-muted-foreground font-medium">
-            {isEn ? "Text fallback (always available)" : "Répondre par texte (toujours disponible)"}
-          </p>
+          {/* Listening phase — mic is auto-managed, just show status */}
+          {state.phase === "listening" && !micDenied && (
+            <div className="flex flex-col items-center gap-2 pt-3 pb-1">
+              {isRunning() ? (
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="relative">
+                    <span className="absolute inset-0 rounded-full bg-[#D10069]/20 animate-ping" aria-hidden />
+                    <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-[#D10069] to-[#ff4d9d] flex items-center justify-center shadow-md shadow-[#D10069]/30">
+                      <Mic className="h-5 w-5 text-white" aria-hidden />
+                    </div>
+                  </div>
+                  <MicPulse listening />
+                  <p className="text-xs text-[#D10069] font-medium">
+                    {isEn ? "Listening… speak now" : "Micro ouvert — parlez maintenant"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {isEn ? "Auto-submits after 2s silence" : "Envoi automatique après 2s de silence"}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  {isEn ? "Opening mic…" : "Ouverture du micro…"}
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="flex gap-2 items-end">
+          {/* Text input row — always available */}
+          <div className="flex gap-2 items-end px-4 pb-3 pt-2">
             <textarea
               value={inputValue}
               onChange={(e) => setTextFallback(e.target.value)}
@@ -434,44 +539,30 @@ export function InterviewEngine({
               }}
               disabled={inputDisabled}
               placeholder={
-                isEn
-                  ? "Type your answer… (Enter to send)"
-                  : "Tapez votre réponse… (Entrée pour envoyer)"
+                state.phase === "listening" && isRunning()
+                  ? (isEn ? "Mic active — or type here" : "Micro actif — ou tapez ici")
+                  : (isEn ? "Type your answer… (Enter to send)" : "Tapez votre reponse… (Entree pour envoyer)")
               }
               className="flex-1 border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#030A8C]/20 disabled:opacity-60"
               rows={2}
             />
-            <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                disabled={inputDisabled || micDenied || state.phase !== "listening"}
-                onClick={() => {
-                  if (isRunning()) stopRecognition();
-                  else startRecognition();
-                }}
-                title={isEn ? "Microphone" : "Microphone"}
-              >
-                {isRunning() ? (
-                  <Mic className="h-4 w-4 text-[var(--digi-accent)]" />
-                ) : (
-                  <MicOff className="h-4 w-4" />
-                )}
-              </Button>
-              <button
-                type="button"
-                disabled={inputDisabled || !inputValue.trim()}
-                onClick={() => submitAnswerStable.current(inputValue)}
-                className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#030A8C] to-[#D10069] text-white flex items-center justify-center disabled:opacity-50"
-                aria-label={isEn ? "Send" : "Envoyer"}
-              >
-                <Send size={16} aria-hidden />
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={inputDisabled || !inputValue.trim()}
+              onClick={() => submitAnswerStable.current(inputValue)}
+              className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#030A8C] to-[#D10069] text-white flex items-center justify-center disabled:opacity-50 shrink-0"
+              aria-label={isEn ? "Send" : "Envoyer"}
+            >
+              <Send size={16} aria-hidden />
+            </button>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center px-4 pb-3">
+            <p className="text-xs text-muted-foreground">
+              {state.phase === "listening" && isRunning()
+                ? ""   /* shown above mic indicator */
+                : ""}
+            </p>
             <Button
               type="button"
               size="sm"

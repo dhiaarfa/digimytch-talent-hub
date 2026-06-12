@@ -32,7 +32,7 @@ import { DigimytchHomeStatsSkeleton } from "@/components/digimytch/digimytch-hom
 import { DemoBanner } from "@/components/digimytch/demo-banner";
 import { TalentHubHomeCards } from "@/components/digimytch/talent-hub-home-cards";
 import { LoyaltyPointsBadge } from "@/components/digimytch/loyalty-points-badge";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { DigimytchOfflineFallback } from "@/components/digimytch/digimytch-offline-fallback";
 import { getCachedAuthUser } from "@/lib/server-auth";
 
@@ -67,7 +67,7 @@ export default async function Home({
     hasProAccess: false,
   };
 
-  const digimytch = isDigimytchTalentHub();
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB;
   const offlineMode = params?.offline === "1";
 
   let data;

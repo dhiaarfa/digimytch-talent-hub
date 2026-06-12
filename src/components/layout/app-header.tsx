@@ -16,7 +16,7 @@ import { getDefaultModel } from "@/lib/ai-models";
 import { useApiKeys, useDefaultModel } from "@/hooks/use-api-keys";
 import { TrialStartButton } from "@/components/trial/trial-start-button";
 import { TalentHubNav, TalentHubMobileNav } from "@/components/digimytch/talent-hub-nav";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { ClientOnly } from "@/components/ui/client-only";
 
 interface AppHeaderProps {
@@ -34,7 +34,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   
-  const digimytch = isDigimytchTalentHub();
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB;
   const effectiveShowUpgrade = digimytch ? false : showUpgradeButton;
   const effectiveIsPro = digimytch ? true : isProPlan;
   

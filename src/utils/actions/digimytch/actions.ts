@@ -1,7 +1,7 @@
 "use server";
 import { logger } from '@/lib/logger';
 
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { createClient } from "@/utils/supabase/server";
 import { applyHybridToMatch, collectResumeSkillTokens, computeResumeJobMatch } from "@/lib/matching";
 import { fetchSemanticSimilarityMap } from "@/lib/semantic-matching";
@@ -46,7 +46,7 @@ export async function getJobsWithMatchScores(): Promise<{
   const resumeRow = bases[0] ?? null;
 
   const mergeDigimytch =
-    isDigimytchTalentHub() && bases.length > 1 ? (() => {
+    IS_DIGIMYTCH_TALENT_HUB && bases.length > 1 ? (() => {
       const merged = new Set<string>();
       for (const r of bases) {
         for (const t of collectResumeSkillTokens(r)) merged.add(t);

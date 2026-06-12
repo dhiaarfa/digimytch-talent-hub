@@ -7,7 +7,7 @@ import { ChevronUp, ChevronDown } from "lucide-react"
 import { Switch } from "@/components/ui/switch";
 import { SavedStylesDialog } from "./saved-styles-dialog";
 import { LayoutTemplate } from "lucide-react";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { resumeLabels } from "@/lib/resume-labels";
 
 interface DocumentSettingsFormProps {
@@ -65,7 +65,7 @@ function NumberInput({ value, onChange, min, max, step }: NumberInputProps) {
 }
 
 export function DocumentSettingsForm({ documentSettings, onChange }: DocumentSettingsFormProps) {
-  const digimytch = isDigimytchTalentHub();
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB;
   const L = resumeLabels();
   const lbl = (en: string, fr: string) => (digimytch ? fr : en);
 

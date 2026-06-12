@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import {
   ContextMenu,
@@ -34,7 +35,7 @@ export function ResumeContextMenu({ children, resume }: ResumeContextMenuProps) 
         description: "Your resume PDF is being downloaded.",
       });
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast({
         title: "Download failed",
         description: "Unable to download your resume. Please try again.",

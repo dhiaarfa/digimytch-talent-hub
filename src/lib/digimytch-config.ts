@@ -8,10 +8,6 @@
 export const IS_DIGIMYTCH_TALENT_HUB =
   process.env.NEXT_PUBLIC_DIGIMYTCH_TALENT_HUB !== "0";
 
-/** @deprecated Use IS_DIGIMYTCH_TALENT_HUB constant directly. */
-export function isDigimytchTalentHub(): boolean {
-  return IS_DIGIMYTCH_TALENT_HUB;
-}
 
 /**
  * Check whether the authenticated user is an admin.

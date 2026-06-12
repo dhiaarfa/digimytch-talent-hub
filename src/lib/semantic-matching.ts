@@ -7,7 +7,7 @@ import {
 } from "@/lib/matching";
 import { ensureJobEmbedding, ensureResumeEmbedding } from "@/utils/actions/embeddings/actions";
 import type { Job, JobMatchResult, Resume } from "@/lib/types";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { logger } from "@/lib/logger";
 
 export { blendHybridScore };
@@ -131,7 +131,7 @@ export async function fetchSemanticSimilarityMap(
 export async function buildDigimytchTokenOverride(
   userId: string
 ): Promise<Set<string> | undefined> {
-  if (!isDigimytchTalentHub()) return undefined;
+  if (!IS_DIGIMYTCH_TALENT_HUB) return undefined;
 
   const supabase = await createClient();
   const { data: rows } = await supabase

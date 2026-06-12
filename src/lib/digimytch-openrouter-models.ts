@@ -11,6 +11,17 @@ export const DIGIMYTCH_OPENROUTER_FALLBACK_CHAIN = [
   "google/gemma-4-26b-a4b-it:free",
 ] as const;
 
+/**
+ * Interview-specific chain: excludes thinking/reasoning models that leak
+ * chain-of-thought into the response (kimi-k2, openrouter/free routing).
+ * Only non-thinking instruction-following models.
+ */
+export const DIGIMYTCH_INTERVIEW_MODEL_CHAIN = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+] as const;
+
 /** Anciens IDs stockés en localStorage / docs — redirection vers des modèles actifs. */
 const DEPRECATED_MODEL_ALIASES: Record<string, string> = {
   "deepseek/deepseek-chat:free": "openrouter/free",
@@ -34,6 +45,14 @@ export function isDigimytchOpenRouterModelId(modelId: string): boolean {
 export function getDigimytchModelFallbackChain(preferred?: string | null): string[] {
   const first = normalizeDigimytchOpenRouterModelId(preferred);
   const chain = [first, ...DIGIMYTCH_OPENROUTER_FALLBACK_CHAIN.filter((id) => id !== first)];
+  return [...new Set(chain)];
+}
+
+/** Interview-only chain — no thinking models. */
+export function getInterviewModelFallbackChain(preferred?: string | null): string[] {
+  const first = normalizeDigimytchOpenRouterModelId(preferred);
+  const base = [...DIGIMYTCH_INTERVIEW_MODEL_CHAIN] as string[];
+  const chain = first ? [first, ...base.filter((id) => id !== first)] : base;
   return [...new Set(chain)];
 }
 
@@ -87,8 +106,3 @@ export function selectDigimytchModelForTask(
   }
 }
 
-/** @deprecated Use vision path in linkedin-analyze.ts */
-export const LINKEDIN_VISION_FALLBACK_CHAIN = [
-  "openrouter/free",
-  "moonshotai/kimi-k2.6:free",
-] as const;

@@ -1,4 +1,5 @@
 "use server";
+import { logger } from "@/lib/logger";
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -32,7 +33,7 @@ export async function listJobApplications(): Promise<JobApplicationWithJob[]> {
     .limit(200); // cap — prevents unbounded scans
 
   if (error) {
-    console.error("[listJobApplications]", error);
+    logger.error("[listJobApplications]", error);
     throw new Error(
       "Impossible de charger les candidatures. Vérifiez la migration SQL Digimytch."
     );
@@ -121,7 +122,7 @@ export async function upsertJobApplication(input: {
           .select()
           .single();
         if (error || !updated) {
-          console.error("[upsertJobApplication] update", error);
+          logger.error("[upsertJobApplication] update", error);
           throw new Error("Mise à jour impossible");
         }
         return updated as JobApplication & { deleted_at?: string | null };
@@ -173,7 +174,7 @@ async function persistApplicationStatusChange(
     .eq("user_id", input.userId);
 
   if (updateError) {
-    console.error("[updateJobApplicationStatus] update", updateError);
+    logger.error("[updateJobApplicationStatus] update", updateError);
     throw new Error("Mise à jour impossible");
   }
 
@@ -185,7 +186,7 @@ async function persistApplicationStatusChange(
       note: input.note?.trim() ?? null,
     });
     if (eventError) {
-      console.error("[updateJobApplicationStatus] event", eventError);
+      logger.error("[updateJobApplicationStatus] event", eventError);
     }
   } else if (input.note?.trim()) {
     const { data: latest } = await supabase
@@ -243,7 +244,7 @@ export async function updateJobApplicationStatus(input: {
       rpcError.message?.includes("Could not find the function");
 
     if (!rpcMissing) {
-      console.error("[updateJobApplicationStatus] rpc", rpcError);
+      logger.error("[updateJobApplicationStatus] rpc", rpcError);
     }
 
     await persistApplicationStatusChange(supabase, {

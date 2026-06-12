@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ProUpgradeButton } from "@/components/settings/pro-upgrade-button";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { OPENROUTER_KEY_SETUP_HINT } from "@/lib/openrouter-config";
 
 interface ApiKeyErrorAlertProps {
@@ -34,7 +34,7 @@ export function ApiKeyErrorAlert({ error, router }: ApiKeyErrorAlertProps) {
   // Check specific conditions
   const errorString = typeof error === 'string' ? error : (error as Error)?.message || '';
   const errorJson = JSON.stringify(error);
-  const isDigimytch = isDigimytchTalentHub();
+  const isDigimytch = IS_DIGIMYTCH_TALENT_HUB;
   const isOpenRouterIssue =
     /openrouter|api key not found|unauthorized/i.test(errorString) ||
     /openrouter|api key not found/i.test(errorJson);

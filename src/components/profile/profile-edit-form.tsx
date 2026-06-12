@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { Profile, WorkExperience, Education, Project } from "@/lib/types";
 import { Card } from "@/components/ui/card";
@@ -130,7 +131,7 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
       toast.error("Failed to reset profile. Please try again.", {
         position: "bottom-right",
       });
-      console.error(error);
+      logger.error(error);
     } finally {
       setIsResetting(false);
     }
@@ -158,7 +159,7 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
       try {
         apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
       } catch (error) {
-        console.error('Error parsing API keys:', error);
+        logger.error('Error parsing API keys:', error);
       }
       
       const result = await formatProfileWithAI(content, {
@@ -247,7 +248,7 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Resume upload error:', error);
+        logger.error('Resume upload error:', error);
         if (error.message.toLowerCase().includes('api key')) {
           setApiKeyError(
             'API key required. Please add your OpenAI API key in settings or upgrade to our Pro Plan.'
@@ -288,7 +289,7 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
         const text = await pdfToText(pdfFile);
         setContent(prev => prev + (prev ? "\n\n" : "") + text);
       } catch (error) {
-        console.error("PDF processing error:", error);
+        logger.error("PDF processing error:", error);
         toast.error("Failed to extract text from the PDF. Please try again or paste the content manually.", {
           position: "bottom-right",
         });
@@ -307,7 +308,7 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
         const text = await pdfToText(file);
         setContent(prev => prev + (prev ? "\n\n" : "") + text);
       } catch (error) {
-        console.error("PDF processing error:", error);
+        logger.error("PDF processing error:", error);
         toast.error("Failed to extract text from the PDF. Please try again or paste the content manually.", {
           position: "bottom-right",
         });

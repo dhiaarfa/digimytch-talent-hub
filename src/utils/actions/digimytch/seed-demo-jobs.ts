@@ -1,4 +1,5 @@
 "use server";
+import { logger } from "@/lib/logger";
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -46,7 +47,7 @@ export async function ensureDemoJobsIfEmpty(): Promise<{ seeded: number }> {
 
   const { error: insertErr } = await supabase.from("jobs").insert(rows);
   if (insertErr) {
-    console.error("[ensureDemoJobsIfEmpty]", insertErr);
+    logger.error("[ensureDemoJobsIfEmpty]", insertErr);
     throw new Error("Impossible de créer les offres de démonstration.");
   }
 

@@ -17,7 +17,7 @@ import {
   type AIModel,
   type ApiKey
 } from '@/lib/ai-models'
-import { isDigimytchTalentHub } from '@/lib/digimytch-config'
+import { IS_DIGIMYTCH_TALENT_HUB } from '@/lib/digimytch-config'
 
 interface ModelSelectorProps {
   value: string
@@ -121,7 +121,7 @@ export function ModelSelector({
   placeholder = "Select an AI model",
   showToast = true
 }: ModelSelectorProps) {
-  const hideCommercialBadges = isDigimytchTalentHub()
+  const hideCommercialBadges = IS_DIGIMYTCH_TALENT_HUB
 
   const isModelSelectable = (modelId: string) => {
     return isModelAvailable(modelId, isProPlan, apiKeys)

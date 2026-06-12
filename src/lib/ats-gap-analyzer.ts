@@ -8,7 +8,7 @@ import {
   isOpenRouterModelNotFoundError,
   isStructuredOutputFailure,
 } from "@/lib/digimytch-openrouter-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { sanitizeForPrompt } from "@/lib/prompt-security";
 import { logger } from "@/lib/logger";
 import { buildAtsCvTextForPrompt, type AtsCvContent } from "@/lib/ats-gap-cv";
@@ -31,7 +31,7 @@ Règles:
 
 function shouldTryNextModel(error: unknown): boolean {
   if (error instanceof AITimeoutError) return true;
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return isOpenRouterModelNotFoundError(error) || isStructuredOutputFailure(error);
   }
   return false;
@@ -65,10 +65,10 @@ export async function analyzeAtsKeywordGap(
 
   const preferred =
     config.model?.trim() ||
-    (isDigimytchTalentHub() ? ATS_GAP_MODEL : "openrouter/free");
+    (IS_DIGIMYTCH_TALENT_HUB ? ATS_GAP_MODEL : "openrouter/free");
 
   const chain = (
-    isDigimytchTalentHub()
+    IS_DIGIMYTCH_TALENT_HUB
       ? getDigimytchModelFallbackChain(preferred)
       : [preferred].filter(Boolean)
   ).slice(0, MAX_MODEL_ATTEMPTS);

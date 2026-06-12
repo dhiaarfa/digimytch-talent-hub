@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSubscriptionAccessState } from "@/lib/subscription-access";
@@ -39,13 +40,13 @@ export async function captureServerAnalyticsEvent(input: {
     });
 
     if (!response.ok) {
-      console.warn("PostHog capture failed", {
+      logger.warn("PostHog capture failed", {
         event: input.event,
         status: response.status,
       });
     }
   } catch (error) {
-    console.warn("PostHog capture failed", {
+    logger.warn("PostHog capture failed", {
       event: input.event,
       error: error instanceof Error ? error.message : "Unknown error",
     });

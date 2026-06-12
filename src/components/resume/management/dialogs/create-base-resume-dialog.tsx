@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { useState, useRef, useCallback } from "react";
 import { useDialogLeaveGuard } from "@/hooks/use-dialog-leave-guard";
@@ -31,7 +32,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { Textarea } from "@/components/ui/textarea";
 import { convertTextToResume } from "@/utils/actions/resumes/ai";
 import { ApiErrorDialog } from "@/components/ui/api-error-dialog";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 
 interface CreateBaseResumeDialogProps {
   children: React.ReactNode;
@@ -227,7 +228,7 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
         try {
           apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
         } catch (error) {
-          console.error('Error parsing API keys:', error);
+          logger.error('Error parsing API keys:', error);
         }
 
 
@@ -355,7 +356,7 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
 
       goToResume(resume.id);
     } catch (error) {
-      console.error('Create resume error:', error);
+      logger.error('Create resume error:', error);
       if (error instanceof Error && error.message.includes('Free plan limit reached')) {
         setErrorMessage({
           title: "Limite atteinte",
@@ -625,7 +626,7 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
                 {importOption === 'import-profile' && (
                   <div className="mt-4 space-y-3">
                     <div className="text-sm font-medium text-gray-900">
-                      {isDigimytchTalentHub() ? "Sélectionner le contenu à inclure" : "Select Content to Include"}
+                      {IS_DIGIMYTCH_TALENT_HUB ? "Sélectionner le contenu à inclure" : "Select Content to Include"}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       {[
@@ -649,7 +650,7 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
                                   <span className="text-sm font-medium">{section.label}</span>
                                   <span className="text-xs text-gray-500 shrink-0">
                                     ({section.data?.length ?? 0}
-                                    {section.data?.length === 0 && isDigimytchTalentHub()
+                                    {section.data?.length === 0 && IS_DIGIMYTCH_TALENT_HUB
                                       ? " — vide"
                                       : ""}
                                     )
@@ -784,7 +785,7 @@ export function CreateBaseResumeDialog({ children, profile }: CreateBaseResumeDi
           onUpgrade={() => {
             setShowErrorDialog(false);
             window.location.href = withBasePath(
-              isDigimytchTalentHub() ? '/settings' : '/subscription'
+              IS_DIGIMYTCH_TALENT_HUB ? '/settings' : '/subscription'
             );
           }}
           onSettings={() => {

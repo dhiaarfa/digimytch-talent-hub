@@ -9,7 +9,7 @@ import { Logo } from "@/components/ui/logo";
 import { ErrorDialog } from "@/components/auth/error-dialog";
 import { AuthDialogProvider } from "@/components/auth/auth-dialog-provider";
 import { DigimytchLoginView } from "@/components/auth/digimytch-login-view";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 
 export const metadata: Metadata = {
   title: "Connexion | Digimytch Talent Hub",
@@ -27,7 +27,7 @@ export default async function LoginPage({
     params?.error === "email_confirmation" ||
     params?.error === "auth_code_missing";
 
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return <DigimytchLoginView showErrorDialog={!!showErrorDialog} />;
   }
 

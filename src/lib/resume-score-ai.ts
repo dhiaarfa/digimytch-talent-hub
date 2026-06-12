@@ -10,7 +10,7 @@ import {
   isStructuredOutputFailure,
   selectDigimytchModelForTask,
 } from "@/lib/digimytch-openrouter-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { resumeScoreSchema, type ResumeScoreMetrics } from "@/lib/zod-schemas";
 import {
   buildCompactJobScoreText,
@@ -54,7 +54,7 @@ Do not wrap JSON in markdown code fences.`;
 
 function shouldTryNextModel(error: unknown): boolean {
   if (error instanceof AITimeoutError) return true;
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return (
       isOpenRouterModelNotFoundError(error) || isStructuredOutputFailure(error)
     );
@@ -73,10 +73,10 @@ export async function generateResumeScoreWithAI(
 
   const preferred =
     config.model?.trim() ||
-    (isDigimytchTalentHub() ? selectDigimytchModelForTask("cv") : "");
+    (IS_DIGIMYTCH_TALENT_HUB ? selectDigimytchModelForTask("cv") : "");
 
   const chain = (
-    isDigimytchTalentHub()
+    IS_DIGIMYTCH_TALENT_HUB
       ? getDigimytchModelFallbackChain(preferred)
       : [preferred].filter(Boolean)
   ).slice(0, SCORE_MAX_MODEL_ATTEMPTS);

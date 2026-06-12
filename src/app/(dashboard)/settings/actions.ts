@@ -1,4 +1,5 @@
 'use server'
+import { logger } from "@/lib/logger";
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -141,7 +142,7 @@ interface ApiTestResult {
       }
   
     } catch (error) {
-      console.error('Error testing API key:', error)
+      logger.error('Error testing API key:', error)
       return { 
         success: false,
         error: error instanceof Error ? error.message : 'Failed to test API key'

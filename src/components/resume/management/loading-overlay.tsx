@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2 } from "lucide-react";
 import { LoadingDots } from "@/components/ui/loading-dots";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 
 export const CREATION_STEPS = [
   { id: 'analyzing', label: 'Analyzing Job Description' },
@@ -88,7 +88,7 @@ interface LoadingOverlayProps {
 }
 
 export function LoadingOverlay({ currentStep, variant = 'resume' }: LoadingOverlayProps) {
-  const digi = isDigimytchTalentHub();
+  const digi = IS_DIGIMYTCH_TALENT_HUB;
   const lang = digi ? 'fr' : 'en';
   const steps = CREATION_STEPS.map((step) => ({
     id: step.id,

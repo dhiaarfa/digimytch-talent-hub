@@ -12,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useApiKeys, useDefaultModel } from "@/hooks/use-api-keys";
 import { getDefaultModel, selectBestModelForTask } from "@/lib/ai-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { resumeLabels } from "@/lib/resume-labels";
 import {
   normalizeCoverLetterContent,
@@ -81,7 +81,7 @@ export function CoverLetterPanel({
   }, [state.resume.cover_letter?.content, state.resume.has_cover_letter]);
 
   const resolveConfig = (): AIConfig => {
-    const fallback = isDigimytchTalentHub()
+    const fallback = IS_DIGIMYTCH_TALENT_HUB
       ? selectBestModelForTask("lettre")
       : getDefaultModel(true);
     return {

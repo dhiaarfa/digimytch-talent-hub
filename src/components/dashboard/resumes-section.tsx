@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { Trash2, Copy, FileText, Sparkles, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -118,7 +119,7 @@ export function ResumesSection({
       toast.success(`"${resumeName}" deleted successfully`, { id: resumeId });
     } catch (error) {
       // On error, the optimistic update will automatically rollback
-      console.error('Failed to delete resume:', error);
+      logger.error('Failed to delete resume:', error);
       toast.error(`Failed to delete "${resumeName}". Please try again.`, { id: resumeId });
     } finally {
       // Remove from deleting set
@@ -160,7 +161,7 @@ export function ResumesSection({
       toast.success(`"${sourceResume.name}" copied successfully`, { id: `copy-${sourceResume.id}` });
     } catch (error) {
       // On error, the optimistic update will automatically rollback
-      console.error('Failed to copy resume:', error);
+      logger.error('Failed to copy resume:', error);
       toast.error(`Failed to copy "${sourceResume.name}". Please try again.`, { id: `copy-${sourceResume.id}` });
     } finally {
       // Remove from copying set

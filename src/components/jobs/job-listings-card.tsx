@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -89,7 +90,7 @@ export function JobListingsCard() {
       setJobs(result.jobs);
       setTotalPages(result.totalPages);
     } catch (error) {
-      console.error('Error fetching jobs:', error);
+      logger.error('Error fetching jobs:', error);
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +121,7 @@ export function JobListingsCard() {
       // Refetch jobs after deletion
       fetchJobs();
     } catch (error) {
-      console.error('Error deleting job:', error);
+      logger.error('Error deleting job:', error);
     }
   };
 

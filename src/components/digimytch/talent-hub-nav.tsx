@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import {
   LayoutDashboard,
   Briefcase,
@@ -24,7 +24,7 @@ export const talentHubLinks = [
 
 export function TalentHubNav() {
   const pathname = usePathname();
-  if (!isDigimytchTalentHub()) return null;
+  if (!IS_DIGIMYTCH_TALENT_HUB) return null;
 
   return (
     <nav className="hidden lg:flex items-center gap-0.5 ml-2 xl:ml-4 flex-wrap max-w-[min(100%,52rem)]">
@@ -55,7 +55,7 @@ export function TalentHubNav() {
 
 export function TalentHubMobileNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  if (!isDigimytchTalentHub()) return null;
+  if (!IS_DIGIMYTCH_TALENT_HUB) return null;
 
   return (
     <div className="flex flex-col gap-1 border-t border-purple-100 pt-3 mt-2">

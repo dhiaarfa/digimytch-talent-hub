@@ -10,7 +10,7 @@ import {
   shouldSkipStaleInactiveSubscriptionUpdate,
   type SupportedStripeStatus,
 } from '@/lib/stripe/subscription-sync';
-import { isDigimytchTalentHub } from '@/lib/digimytch-config';
+import { IS_DIGIMYTCH_TALENT_HUB } from '@/lib/digimytch-config';
 import { getStripeServer } from '@/lib/stripe-server';
 
 function getStripe(): Stripe {
@@ -354,7 +354,7 @@ export async function checkSubscriptionPlan() {
     };
   }
 
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return {
       plan: 'pro',
       status: 'active',
@@ -425,7 +425,7 @@ export async function getSubscriptionPlan(returnId?: boolean) {
     return '';
   }
 
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     if (returnId) return { plan: 'pro', id: user.id };
     return 'pro';
   }

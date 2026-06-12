@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useEffect, useMemo, useState } from "react"
 import type { SubscriptionSnapshot } from "@/lib/subscription-access"
-import { isDigimytchTalentHub } from "@/lib/digimytch-config"
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config"
 import { PFE_TAGLINE } from "@/lib/digimytch-branding"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
@@ -42,7 +42,7 @@ export function SettingsContent({
   subscriptionSnapshot,
   isAdmin = false,
 }: SettingsContentProps) {
-  const digimytch = isDigimytchTalentHub()
+  const digimytch = IS_DIGIMYTCH_TALENT_HUB
   const sections = useMemo(
     () =>
       digimytch

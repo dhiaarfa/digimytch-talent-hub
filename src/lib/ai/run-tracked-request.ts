@@ -9,7 +9,7 @@ import {
   isOpenRouterModelNotFoundError,
   isStructuredOutputFailure,
 } from "@/lib/digimytch-openrouter-models";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { logger } from "@/lib/logger";
 
 export async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
@@ -22,7 +22,7 @@ export async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage
   },
   task: (model: LanguageModelV1) => Promise<T>
 ): Promise<T> {
-  const chain = isDigimytchTalentHub()
+  const chain = IS_DIGIMYTCH_TALENT_HUB
     ? getDigimytchModelFallbackChain(input.config?.model)
     : [input.config?.model].filter(Boolean) as string[];
 
@@ -70,7 +70,7 @@ export async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage
 
       const canTryNextModel = i < modelsToTry.length - 1;
       if (
-        isDigimytchTalentHub() &&
+        IS_DIGIMYTCH_TALENT_HUB &&
         canTryNextModel &&
         (isOpenRouterModelNotFoundError(error) || isStructuredOutputFailure(error))
       ) {

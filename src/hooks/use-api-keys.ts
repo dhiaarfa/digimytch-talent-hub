@@ -7,7 +7,7 @@ import {
   selectBestModelForTask,
 } from '@/lib/ai-models'
 import { normalizeDigimytchOpenRouterModelId } from '@/lib/digimytch-openrouter-models'
-import { isDigimytchTalentHub } from '@/lib/digimytch-config'
+import { IS_DIGIMYTCH_TALENT_HUB } from '@/lib/digimytch-config'
 
 // Storage keys - must match existing keys for backwards compatibility
 const API_KEYS_STORAGE_KEY = 'resumelm-api-keys'
@@ -82,7 +82,7 @@ function readStoredApiKeys(): ApiKey[] {
 
 function readStoredModel(): string {
   if (typeof window === 'undefined') return EMPTY_MODEL
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     const digi = localStorage.getItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY)
     if (digi) return normalizeDigimytchOpenRouterModelId(digi)
     const legacy = localStorage.getItem(MODEL_STORAGE_KEY)
@@ -93,11 +93,11 @@ function readStoredModel(): string {
 }
 
 function persistModelChoice(model: string) {
-  const normalized = isDigimytchTalentHub()
+  const normalized = IS_DIGIMYTCH_TALENT_HUB
     ? normalizeDigimytchOpenRouterModelId(model)
     : model
   localStorage.setItem(MODEL_STORAGE_KEY, normalized)
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     localStorage.setItem(DIGIMYTCH_AI_MODEL_STORAGE_KEY, normalized)
   }
 }

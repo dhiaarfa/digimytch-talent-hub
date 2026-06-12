@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserWithTimeout } from "@/lib/supabase-resilience";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { isSupabaseConfigured } from "@/lib/supabase-url";
 
 /** Une seule validation auth par requête serveur (layout + pages + actions RSC). */
@@ -17,7 +17,7 @@ export const getCachedAuthUser = cache(async (): Promise<{
   try {
     const supabase = await createClient();
 
-    if (isDigimytchTalentHub()) {
+    if (IS_DIGIMYTCH_TALENT_HUB) {
       try {
         const {
           data: { session },

@@ -1,4 +1,5 @@
 'use client';
+import { logger } from "@/lib/logger";
 
 import React from 'react';
 import { Resume, Profile, Job } from "@/lib/types";
@@ -140,7 +141,7 @@ export function ResumeEditorClient({
       if (typeof value === 'object' && value !== null) {
         dispatch({ type: 'UPDATE_FIELD', field, value });
       } else {
-        console.error('Invalid document settings:', value);
+        logger.error('Invalid document settings:', value);
       }
     } else {
       dispatch({ type: 'UPDATE_FIELD', field, value });

@@ -21,14 +21,14 @@ import {
   captureServerAnalyticsEvent,
   getSubscriptionAnalyticsProperties,
 } from "@/lib/analytics/server";
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 
 async function assertResumeQuota(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   type: ResumeLimitType
 ) {
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return;
   }
 

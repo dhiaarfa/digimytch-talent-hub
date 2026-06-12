@@ -1,4 +1,5 @@
 "use server";
+import { logger } from "@/lib/logger";
 
 import { generateText } from "ai";
 import { createClient } from "@/utils/supabase/server";
@@ -98,7 +99,7 @@ export async function explainJobMatch(jobId: string): Promise<ExplainMatchResult
       .upsert({ job_hash: jobHash, analysis: explanation })
       .then(({ error }) => {
         if (error && process.env.NODE_ENV === "development") {
-          console.warn("[explainJobMatch] cache upsert skipped:", error.message);
+          logger.warn("[explainJobMatch] cache upsert skipped:", error.message);
         }
       });
 

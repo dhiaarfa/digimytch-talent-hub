@@ -126,6 +126,33 @@ export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds, availabl
 
       <AddJobModal open={addJobOpen} onOpenChange={setAddJobOpen} />
 
+      {/* Stats summary bar — shown once we have jobs */}
+      {count > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {(() => {
+            const scores = displayMatches.map((j) => j.match.score ?? 0).filter(Boolean);
+            const best = scores.length ? Math.max(...scores) : 0;
+            const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+            const highMatch = scores.filter((s) => s >= 70).length;
+            return [
+              { icon: Target, value: count, label: lang === "en" ? "jobs analyzed" : "offres analysees", color: "text-[#D10069]", bg: "bg-[#D10069]/8", iconBg: "bg-[#D10069]/12" },
+              { icon: Sparkles, value: `${best}%`, label: lang === "en" ? "best score" : "meilleur score", color: "text-violet-700", bg: "bg-violet-50", iconBg: "bg-violet-100" },
+              { icon: ClipboardList, value: highMatch, label: lang === "en" ? "high matches (≥70%)" : "bons matchs (70%+)", color: "text-[#030A8C]", bg: "bg-[#030A8C]/8", iconBg: "bg-[#030A8C]/12" },
+            ].map(({ icon: Icon, value, label, color, bg, iconBg }) => (
+              <div key={label} className={`rounded-xl border border-[var(--digi-border)] ${bg} p-3 flex items-center gap-3`}>
+                <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+                  <Icon className={`h-5 w-5 ${color}`} aria-hidden />
+                </div>
+                <div>
+                  <p className={`text-xl font-bold ${color} leading-none`}>{value}</p>
+                  <p className="text-xs text-[var(--digi-muted)] mt-0.5">{label}</p>
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
+
       <PlatformJobsCatalog availableSlugs={availableCatalogSlugs} />
 
       <section className="rounded-xl border border-dashed border-[var(--digi-border)] bg-[var(--digi-surface)]/50 px-4 py-3 text-xs text-[var(--digi-muted)]">

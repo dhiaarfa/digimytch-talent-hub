@@ -5,10 +5,10 @@ import { SplitContent } from "@/components/ui/split-content";
 import { CheckCircle2 } from "lucide-react";
 
 const stats = [
-  { value: "1 CV", label: "Profil de référence" },
-  { value: "Score", label: "Matching par offre" },
-  { value: "Catalogue", label: "Formations Digimytch" },
-  { value: "Suivi", label: "Candidatures & historique" },
+  { value: "1 CV", label: "Profil de référence", icon: "📄", color: "text-violet-700 bg-violet-50" },
+  { value: "Score", label: "Matching par offre", icon: "🎯", color: "text-[#D10069] bg-[#D10069]/8" },
+  { value: "Catalogue", label: "Formations Digimytch", icon: "📚", color: "text-[#030A8C] bg-[#030A8C]/8" },
+  { value: "Suivi", label: "Candidatures & historique", icon: "📋", color: "text-amber-700 bg-amber-50" },
 ];
 
 export default function FeatureHighlights() {
@@ -26,11 +26,17 @@ export default function FeatureHighlights() {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-8 mb-16">
+        <div className="flex flex-wrap justify-center gap-4 mb-16">
           {stats.map((s) => (
-            <div key={s.label} className="text-center min-w-[120px]">
-              <p className="text-2xl font-bold text-violet-700">{s.value}</p>
-              <p className="text-sm text-muted-foreground">{s.label}</p>
+            <div key={s.label} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white shadow-sm px-4 py-3 min-w-[160px]">
+              <span className={`text-2xl w-10 h-10 rounded-lg flex items-center justify-center ${s.color.split(" ")[1]}`}
+                aria-hidden>
+                {s.icon}
+              </span>
+              <div className="text-left">
+                <p className={`text-xl font-bold leading-none ${s.color.split(" ")[0]}`}>{s.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+              </div>
             </div>
           ))}
         </div>

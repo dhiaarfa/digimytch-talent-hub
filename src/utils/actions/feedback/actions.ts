@@ -1,4 +1,5 @@
 "use server";
+import { logger } from "@/lib/logger";
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
@@ -47,7 +48,7 @@ export async function submitCandidateFeedback(
 
   if (error) {
     if (process.env.NODE_ENV === "development") {
-      console.warn("[submitCandidateFeedback]", error.message);
+      logger.warn("[submitCandidateFeedback]", error.message);
     }
     return { ok: false, error: "Envoi impossible pour le moment. Réessayez plus tard." };
   }

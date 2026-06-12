@@ -3,7 +3,7 @@
  * This file contains all AI model and provider configurations used throughout the application
  */
 
-import { isDigimytchTalentHub } from './digimytch-config'
+import { IS_DIGIMYTCH_TALENT_HUB } from './digimytch-config'
 import {
   isDigimytchOpenRouterModelId,
   normalizeDigimytchOpenRouterModelId,
@@ -594,14 +594,14 @@ export function isModelAvailable(
  * En mode Digimytch (PFE), on force un modèle OpenRouter gratuit si seule OPENROUTER_API_KEY est configurée.
  */
 export function getFastCheapFreeModel(): string {
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return DIGIMYTCH_DEFAULT_MODEL_ID
   }
   return MODEL_DESIGNATIONS.FAST_CHEAP_FREE
 }
 
 export function getDefaultModel(isPro: boolean): string {
-  if (isDigimytchTalentHub()) {
+  if (IS_DIGIMYTCH_TALENT_HUB) {
     return DIGIMYTCH_DEFAULT_MODEL_ID
   }
   return isPro ? DEFAULT_MODELS.PRO_USER : DEFAULT_MODELS.FREE_USER

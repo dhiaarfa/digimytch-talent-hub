@@ -1,4 +1,4 @@
-import { isDigimytchTalentHub } from "@/lib/digimytch-config";
+import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { RESUME_LABELS_FR } from "@/lib/resume-labels-fr";
 
 const RESUME_LABELS_EN = {
@@ -106,7 +106,7 @@ function readDigiLang(): "fr" | "en" | null {
 export function resumeLabels(): ResumeLabels {
   const lang = readDigiLang();
   if (lang === "en") return RESUME_LABELS_EN as unknown as ResumeLabels;
-  return (isDigimytchTalentHub() ? RESUME_LABELS_FR : RESUME_LABELS_EN) as ResumeLabels;
+  return (IS_DIGIMYTCH_TALENT_HUB ? RESUME_LABELS_FR : RESUME_LABELS_EN) as ResumeLabels;
 }
 
 /** Libellés CV réactifs au changement FR/EN (composants client). */
@@ -117,5 +117,5 @@ export function tResume(en: string, fr: string): string {
   const lang = readDigiLang();
   if (lang === "en") return en;
   if (lang === "fr") return fr;
-  return isDigimytchTalentHub() ? fr : en;
+  return IS_DIGIMYTCH_TALENT_HUB ? fr : en;
 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Rate limiter — sliding window (60 s / 10 requests per user per scope).
  *
@@ -110,7 +111,7 @@ function resolveBackend(): Backend {
     return { type: "upstash", client: new UpstashRedis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN }) };
   }
   if (process.env.NODE_ENV === "production") {
-    console.warn("[RateLimiter] No Redis configured — in-process fallback is NOT safe for multi-instance deployments. Set REDIS_URL or UPSTASH_REDIS_REST_URL.");
+    logger.warn("[RateLimiter] No Redis configured — in-process fallback is NOT safe for multi-instance deployments. Set REDIS_URL or UPSTASH_REDIS_REST_URL.");
   }
   return { type: "memory" };
 }
@@ -143,7 +144,7 @@ export async function checkRateLimit(userId: string, scope = "global"): Promise<
       result = { allowed: retryAfter === 0, retryAfterSeconds: retryAfter };
     }
   } catch (err) {
-    console.error("[RateLimiter] Backend error:", err instanceof Error ? err.message : err);
+    logger.error("[RateLimiter] Backend error:", err instanceof Error ? err.message : err);
     if (process.env.NODE_ENV === "production") {
       throw new RateLimitBackendError();
     }

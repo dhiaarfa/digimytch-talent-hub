@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { OptimizedSubscriptionPage } from "@/components/pricing/optimized-subscription-page";
 import { getCachedSubscriptionForSession } from "@/lib/cached-subscription";
 
@@ -28,7 +29,7 @@ export default async function PlansPage() {
       };
     }
   } catch (error) {
-    console.error("Error fetching subscription status:", error);
+    logger.error("Error fetching subscription status:", error);
   }
 
   return <OptimizedSubscriptionPage initialProfile={profile} />;
