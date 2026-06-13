@@ -33,7 +33,7 @@ export function HowItWorks() {
   const { lang } = useLanguage();
   const t = landingCopy(lang);
   return (
-    <section id="how-it-works" className="digimytch-landing-light relative overflow-hidden py-20 bg-white">
+    <section id="how-it-works" className="digimytch-landing-light relative overflow-hidden py-10 md:py-14 bg-white">
       {/* Subtle background: people collaborating in a modern workspace */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
@@ -49,7 +49,7 @@ export function HowItWorks() {
           {t.howTitle}
         </h2>
         <p className="text-center text-[var(--digi-muted)] mt-3">{t.howSub}</p>
-        <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-5 gap-8 relative">
+        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-5 gap-6 relative">
           {t.steps.map(({ n, title, desc }, i) => {
             const Icon = STEP_ICONS[i] ?? UserPlus;
             return (
@@ -89,7 +89,7 @@ export function FeaturesGrid() {
   const { lang } = useLanguage();
   const t = landingCopy(lang);
   return (
-    <section id="features" className="digimytch-landing-light py-20 bg-[var(--digi-surface)]">
+    <section id="features" className="digimytch-landing-light py-10 md:py-14 bg-[var(--digi-surface)]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center">
           <span className="inline-block px-3 py-1 rounded-full bg-[var(--digi-navy)]/8 border border-[var(--digi-navy)]/15 text-[var(--digi-navy)] text-xs font-semibold tracking-wide uppercase mb-4">
@@ -104,7 +104,7 @@ export function FeaturesGrid() {
               : "Tous les outils pour vous démarquer, pensés pour le marché tunisien."}
           </p>
         </div>
-        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {t.features.map(({ title, desc }, i) => {
             const Icon = FEATURE_ICONS[i] ?? FileText;
             const color = FEATURE_COLORS[i] ?? FEATURE_COLORS[0];
@@ -154,7 +154,7 @@ export function ScoreBridgePreview() {
   const missing = ["Docker", "Angular", "CI/CD"];
 
   return (
-    <section className="digimytch-landing-light py-20 bg-[var(--digi-surface)]">
+    <section className="digimytch-landing-light py-10 md:py-14 bg-[var(--digi-surface)]">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center text-[var(--digi-dark)]">
           {t.scoreTitle}
@@ -226,7 +226,7 @@ export function TestimonialsSection() {
   const t = landingCopy(lang);
   const items = t.testimonials as Array<{ initials: string; name: string; role: string; stars?: number; quote: string; bg: string }>;
   return (
-    <section className="relative overflow-hidden py-20 bg-white">
+    <section className="relative overflow-hidden py-10 md:py-14 bg-white">
       {/* Subtle background: team of professionals in a bright office */}
       <div
         className="absolute inset-0 bg-cover bg-top bg-no-repeat pointer-events-none"
@@ -254,7 +254,7 @@ export function TestimonialsSection() {
         </div>
 
         {/* First row: 3 cards */}
-        <div className="mt-10 grid md:grid-cols-3 gap-5">
+        <div className="mt-8 grid md:grid-cols-3 gap-5">
           {items.slice(0, 3).map((item) => (
             <TestimonialCard key={item.initials} item={item} />
           ))}
@@ -308,7 +308,7 @@ export function FAQSection() {
   const { lang } = useLanguage();
   const t = landingCopy(lang);
   return (
-    <section id="faq" className="digimytch-landing-light py-20 bg-[var(--digi-surface)]">
+    <section id="faq" className="digimytch-landing-light py-10 md:py-14 bg-[var(--digi-surface)]">
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center text-[var(--digi-dark)] mb-8">
           {t.faqTitle}
@@ -333,7 +333,7 @@ export function CTABanner() {
   const t = landingCopy(lang);
 
   return (
-    <section className="relative overflow-hidden py-20 bg-[var(--digi-navy)] text-white text-center">
+    <section className="relative overflow-hidden py-12 md:py-16 bg-[var(--digi-navy)] text-white text-center">
       {/* Background: abstract tech/career atmosphere — visible at low opacity on dark navy */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"

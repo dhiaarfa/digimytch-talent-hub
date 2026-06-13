@@ -2,12 +2,12 @@
 export const LISTENING_START_DELAY_MS = 0;
 
 /** Delay before restarting a single-shot recognition session after `onend`. */
-export const RECOGNITION_RESTART_DELAY_MS = 80;
+export const RECOGNITION_RESTART_DELAY_MS = 100;
 
 /** Auto-submit after this much silence once the user has spoken.
- *  2800ms gives enough room for natural pauses mid-sentence.
+ *  3200ms gives enough room for natural pauses mid-sentence without cutting off.
  */
-export const SILENCE_SUBMIT_MS = 2800;
+export const SILENCE_SUBMIT_MS = 3200;
 
 export const MIN_TRANSCRIPT_CHARS = 2;
 

@@ -5,7 +5,7 @@ import { AiPoweredBadge } from "@/components/ui/ai-powered-badge";
 
 export default function LinkedInPage() {
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5">
       <DemoBanner />
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <AiPoweredBadge />

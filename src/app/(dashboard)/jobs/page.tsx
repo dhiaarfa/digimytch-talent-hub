@@ -33,7 +33,7 @@ export default async function JobsMatchingPage() {
   // Guard: require a base CV before accessing job matching
   if (!resume) {
     return (
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         <DemoBanner />
         <CvRequiredGate feature="l'analyse d'offres et du scoring emploi-profil" />
       </main>
@@ -41,7 +41,7 @@ export default async function JobsMatchingPage() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
       <DemoBanner />
       <JobsMatchingHub
         resume={resume}

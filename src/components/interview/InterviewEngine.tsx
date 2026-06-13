@@ -235,8 +235,8 @@ export function InterviewEngine({
     let safetyTimer: ReturnType<typeof setTimeout> | null = null;
 
     speakText(state.currentQuestion, {
-      rate: 1.5,    // 1.5 = fast, natural, not robotic
-      pitch: 1.05,
+      rate: 1.1,    // 1.1 = natural cadence, clearly intelligible
+      pitch: 1.0,
       lang: speechLang,
       onEnd: () => {
         if (safetyTimer) clearTimeout(safetyTimer);
@@ -244,8 +244,8 @@ export function InterviewEngine({
       },
     });
 
-    // 8 s fallback — Chrome sometimes never fires onend; cut wait short so mic opens fast
-    safetyTimer = setTimeout(() => dispatch({ type: "SPEAK_DONE" }), 8_000);
+    // 12 s fallback — Chrome sometimes never fires onend; longer window for full questions
+    safetyTimer = setTimeout(() => dispatch({ type: "SPEAK_DONE" }), 12_000);
 
     return () => {
       cancelSpeech();
@@ -399,7 +399,7 @@ export function InterviewEngine({
         <StepIndicator current={state.userTurns} max={INTERVIEW_MAX_TURNS} />
       </div>
 
-      <div className="h-[min(380px,45vh)] overflow-y-auto p-4 space-y-4 bg-[var(--digi-surface)]/40">
+      <div className="h-[min(440px,50vh)] overflow-y-auto p-4 space-y-4 bg-[var(--digi-surface)]/40">
         {state.messages.map((msg, i) => (
           <MessageBubble
             key={`${i}-${msg.role}`}

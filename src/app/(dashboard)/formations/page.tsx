@@ -20,7 +20,7 @@ export default async function FormationsPage() {
 
   if (!hasResume) {
     return (
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
         <DemoBanner />
         <CvRequiredGate feature="les formations personnalisées et les recommandations IA" />
       </main>
@@ -43,7 +43,7 @@ export default async function FormationsPage() {
   const { courses, ranked, gapUnion } = data;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
       <DemoBanner />
       <PageGuide
         title="Formations recommandées"

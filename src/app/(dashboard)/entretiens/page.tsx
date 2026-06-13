@@ -42,7 +42,7 @@ export default async function EntretiensPage() {
 
   return (
 
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5">
 
       <DemoBanner />
 

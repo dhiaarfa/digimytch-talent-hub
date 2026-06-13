@@ -13,7 +13,7 @@ export function HeroSection() {
   const t = landingCopy(lang);
 
   return (
-    <section className="digimytch-landing-hero relative overflow-hidden pt-28 pb-20 lg:pt-32 lg:pb-28">
+    <section className="digimytch-landing-hero relative overflow-hidden pt-20 pb-12 lg:pt-24 lg:pb-16">
       {/* Background image — professionals in a modern workspace, tinted by the navy gradient */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"

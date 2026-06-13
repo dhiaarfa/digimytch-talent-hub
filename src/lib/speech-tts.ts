@@ -44,7 +44,7 @@ function getBestFrenchVoice(): SpeechSynthesisVoice | null {
     (v: SpeechSynthesisVoice) => v.name.includes("Amelie") && v.lang.startsWith("fr"),
     (v: SpeechSynthesisVoice) => v.name.includes("Sylvie") && v.lang.startsWith("fr"),
     // Any non-male French voice
-    (v: SpeechSynthesisVoice) => v.lang === "fr-FR" && !v.name.includes("Henri") && !v.name.includes("Thomas"),
+    (v: SpeechSynthesisVoice) => v.lang === "fr-FR" && !v.name.includes("Henri") && !v.name.includes("Thomas") && !v.name.includes("Rémi") && !v.name.includes("Remi"),
     (v: SpeechSynthesisVoice) => v.lang.startsWith("fr"),
     (v: SpeechSynthesisVoice) => v.lang.startsWith("en"),
   ];
@@ -75,7 +75,7 @@ function startChromeTTSKeepAlive(): ReturnType<typeof setInterval> {
       window.speechSynthesis.pause();
       window.speechSynthesis.resume();
     }
-  }, 10_000);
+  }, 14_000);
 }
 
 export function speakText(text: string, options: SpeakTextOptions = {}): void {
@@ -89,8 +89,8 @@ export function speakText(text: string, options: SpeakTextOptions = {}): void {
 
   window.speechSynthesis.cancel();
 
-  // Cap at 700 chars so full recruiter questions are always spoken
-  const truncated = clean.length > 700 ? `${clean.substring(0, 697)}…` : clean;
+  // Cap at 900 chars so full recruiter questions are always spoken
+  const truncated = clean.length > 900 ? `${clean.substring(0, 897)}…` : clean;
 
   const utterance = new SpeechSynthesisUtterance(truncated);
 
@@ -110,9 +110,9 @@ export function speakText(text: string, options: SpeakTextOptions = {}): void {
 
     if (voice) utterance.voice = voice;
     utterance.lang = lang;
-    // 1.5 = fast, natural, clearly intelligible — far from robotic
-    utterance.rate = options.rate ?? 1.5;
-    utterance.pitch = options.pitch ?? 1.05;
+    // 1.1 = natural cadence, clearly intelligible, not rushed
+    utterance.rate = options.rate ?? 1.1;
+    utterance.pitch = options.pitch ?? 1.0;
     utterance.volume = 1;
 
     // Chrome TTS anti-freeze keep-alive
