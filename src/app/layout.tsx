@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/footer";
 import { AppHeader } from "@/components/layout/app-header";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { isAdminUser, IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { GlobalAssistantLazy } from "@/components/ai/global-assistant-lazy";
@@ -115,6 +116,7 @@ export default async function RootLayout({
           <GlobalAssistantLazy isLoggedIn={!!user} />
           {user && !isAdmin && digimytch && <FeedbackWidget />}
           <Analytics />
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>
