@@ -26,7 +26,8 @@ async function buildDocx(resume: Resume): Promise<Uint8Array> {
     .filter(Boolean)
     .join(" | ");
 
-  const sections: (Paragraph | Table)[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sections: any[] = [];
 
   // Name
   sections.push(
@@ -150,7 +151,7 @@ async function buildDocx(resume: Resume): Promise<Uint8Array> {
       })
     );
     for (const skill of resume.skills) {
-      const items = skill.items?.join(", ") || skill.skills?.join(", ") || "";
+      const items = skill.items?.join(", ") || "";
       if (skill.category || items) {
         sections.push(
           new Paragraph({
