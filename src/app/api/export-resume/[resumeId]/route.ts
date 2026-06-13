@@ -12,7 +12,6 @@ async function buildDocx(resume: Resume): Promise<Uint8Array> {
     Packer,
     Paragraph,
     TextRun,
-    HeadingLevel,
     AlignmentType,
     BorderStyle,
   } = await import("docx");

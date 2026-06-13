@@ -132,8 +132,7 @@ export function JobsMatchingHub({ resume, jobsWithMatch, trackedJobIds, availabl
           {(() => {
             const scores = displayMatches.map((j) => j.match.score ?? 0).filter(Boolean);
             const best = scores.length ? Math.max(...scores) : 0;
-            const _avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-            const highMatch = scores.filter((s) => s >= 70).length;
+const highMatch = scores.filter((s) => s >= 70).length;
             return [
               { icon: Target, value: count, label: lang === "en" ? "jobs analyzed" : "offres analysees", color: "text-[#D10069]", bg: "bg-[#D10069]/8", iconBg: "bg-[#D10069]/12" },
               { icon: Sparkles, value: `${best}%`, label: lang === "en" ? "best score" : "meilleur score", color: "text-violet-700", bg: "bg-violet-50", iconBg: "bg-violet-100" },
