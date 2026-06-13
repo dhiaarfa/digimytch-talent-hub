@@ -119,7 +119,7 @@ export function AdminSettingsTab() {
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Vue en lecture seule de la configuration actuelle. Pour modifier ces paramètres,
-              éditez les variables d'environnement sur votre hébergeur (Vercel, Railway…) ou dans{" "}
+              éditez les variables d&apos;environnement sur votre hébergeur (Vercel, Railway…) ou dans{" "}
               <code className="text-xs">.env.local</code>.
             </p>
           </div>
@@ -139,9 +139,9 @@ export function AdminSettingsTab() {
           <div>
             <p className="text-sm font-semibold text-amber-800">Email(s) administrateur</p>
             <p className="text-xs text-amber-700 mt-1">
-              Les adresses admin sont définies dans la variable d'environnement{" "}
+              Les adresses admin sont définies dans la variable d&apos;environnement{" "}
               <code className="font-mono">ADMIN_EMAILS</code> (liste séparée par des virgules).
-              Seuls ces comptes ont accès au panneau d'administration.
+              Seuls ces comptes ont accès au panneau d&apos;administration.
             </p>
             <p className="text-xs text-amber-600 mt-2">
               Exemple : <code className="font-mono">ADMIN_EMAILS=admin@digimytch.com,tech@digimytch.com</code>

@@ -15,17 +15,11 @@ async function buildDocx(resume: Resume): Promise<Uint8Array> {
     HeadingLevel,
     AlignmentType,
     BorderStyle,
-    Table,
-    TableRow,
-    TableCell,
-    WidthType,
-    ShadingType,
   } = await import("docx");
 
   const NAVY = "030A8C";
   const PINK = "D10069";
   const GRAY = "6B7280";
-  const LIGHT = "F3F4F6";
 
   const name = [resume.first_name, resume.last_name].filter(Boolean).join(" ") || "CV";
   const contact = [resume.email, resume.phone_number, resume.location, resume.linkedin_url]

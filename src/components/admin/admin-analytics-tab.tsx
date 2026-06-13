@@ -181,7 +181,7 @@ export function AdminAnalyticsTab() {
       {/* Alerts section */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">
-          Points d'attention
+          Points d&apos;attention
         </h3>
         <div className="grid grid-cols-2 gap-3">
           <StatCard
@@ -205,7 +205,7 @@ export function AdminAnalyticsTab() {
 
       {/* Activity bar chart (simplified) */}
       <div className="rounded-xl border border-[var(--digi-border)] bg-white dark:bg-[var(--digi-card)] p-4">
-        <h3 className="text-sm font-semibold mb-3">Répartition de l'activité (7 derniers jours)</h3>
+        <h3 className="text-sm font-semibold mb-3">Répartition de l&apos;activité (7 derniers jours)</h3>
         <div className="space-y-3">
           {[
             { label: "Utilisateurs actifs", value: data.activeUsersLast7Days, max: Math.max(data.activeUsersLast7Days, data.resumesLast7Days, data.jobsLast7Days, 1), color: "bg-[#030A8C]" },
