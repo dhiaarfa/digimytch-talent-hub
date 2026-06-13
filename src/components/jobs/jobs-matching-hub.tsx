@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Link2, Target, ClipboardList, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Job, JobMatchResult, Resume } from "@/lib/types";
-import { getHybridJobsWithMatchScores } from "@/utils/actions/digimytch/actions";
+import { getHybridJobsWithMatchScores, type JobWithMatch } from "@/utils/actions/digimytch/actions";
 import { ScoreBridgePanel } from "@/components/jobs/score-bridge-panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,7 @@ import { appCopy } from "@/lib/digi-i18n";
 import { cn } from "@/lib/utils";
 import { AiPoweredBadge } from "@/components/ui/ai-powered-badge";
 
-export interface JobWithMatch {
-  job: Job;
-  match: JobMatchResult;
-}
+export type { JobWithMatch };
 
 interface JobsMatchingHubProps {
   resume: Resume | null;

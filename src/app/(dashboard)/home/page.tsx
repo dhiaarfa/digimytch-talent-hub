@@ -1,19 +1,6 @@
-/**
- * Home Page Component
- * 
- * This is the main dashboard page of the Resume AI application. It displays:
- * - User profile information
- * - Quick stats (profile score, resume counts, job postings)
- * - Base resume management
- * - Tailored resume management
- * 
- * The page implements a soft gradient minimalism design with floating orbs
- * and mesh overlay for visual interest.
- */
-
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import {User } from "lucide-react";
+import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ProfileRow } from "@/components/dashboard/profile-row";
@@ -35,9 +22,6 @@ import { LoyaltyPointsBadge } from "@/components/digimytch/loyalty-points-badge"
 import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { DigimytchOfflineFallback } from "@/components/digimytch/digimytch-offline-fallback";
 import { getCachedAuthUser } from "@/lib/server-auth";
-
-
-
 
 
 
@@ -129,11 +113,9 @@ export default async function Home({
         case 'createdAt':
         default:
           return modifier * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-       
-    }
+      }
     });
   }
-
 
   // Sort both resume lists
   const baseResumes = sortResumes(unsortedBaseResumes, baseSort, baseDirection);
@@ -142,8 +124,6 @@ export default async function Home({
   // Check if user has Pro access (paid, canceling-but-active, or trialing)
   const isProPlan = subscription.hasProAccess;
 
-  // logger.debug(subscription);
-  
   // Free plan limits
   const canCreateBase = isProPlan || baseResumesCount < FREE_PLAN_RESUME_LIMITS.base;
   const canCreateTailored = isProPlan || tailoredResumesCount < FREE_PLAN_RESUME_LIMITS.tailored;

@@ -1,4 +1,5 @@
 import "server-only";
+import { logger } from "@/lib/logger";
 
 export type SendMailInput = {
   to: string;
@@ -68,7 +69,7 @@ export async function sendTransactionalEmail(
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     if (process.env.NODE_ENV === "development") {
-      console.info("[sendTransactionalEmail:dev]", {
+      logger.info("[sendTransactionalEmail:dev]", {
         to,
         subject: input.subject,
         preview: input.text.slice(0, 200),

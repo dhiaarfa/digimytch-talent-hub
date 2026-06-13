@@ -67,6 +67,12 @@ _file_list_temp.txt
 .claude/
 .cursor/
 
+# deployment / internal docs (local only)
+push_fix.bat
+START.bat
+ANALYSE_TECHNIQUE_COMPLETE.md
+CURSOR_TASKS.md
+
 # OS / IDE
 Thumbs.db
 .idea/

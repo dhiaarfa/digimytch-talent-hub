@@ -12,6 +12,15 @@ import { spawnSync } from "node:child_process";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 
+// Skip heavy disk-size checks in CI — caches don't exist there anyway
+if (process.env.CI) {
+  spawnSync(process.execPath, [resolve(__dirname, "copy-pdf-worker.mjs")], {
+    stdio: "inherit",
+    cwd: root,
+  });
+  process.exit(0);
+}
+
 /** Seuils Mo — au-delà, suppression automatique */
 const THRESHOLDS_MB = {
   ".next": 400,
