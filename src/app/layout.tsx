@@ -5,7 +5,7 @@ import { Toaster } from "sonner";
 import { Footer } from "@/components/layout/footer";
 import { AppHeader } from "@/components/layout/app-header";
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next";
 import { isAdminUser, IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { GlobalAssistantLazy } from "@/components/ai/global-assistant-lazy";
@@ -16,8 +16,6 @@ import { ScrollButtons } from "@/components/ui/scroll-to-top";
 import { SupabaseSessionGuard } from "@/components/auth/supabase-session-guard";
 import { FeedbackWidget } from "@/components/feedback/feedback-widget";
 import { DigimytchNavigationProgressShell } from "@/components/ui/digimytch-navigation-progress-shell";
-
-const isVercel = process.env.VERCEL === "1";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -96,11 +94,9 @@ export default async function RootLayout({
             ) : (
               <div className={user ? "py-14 flex-1" : "flex-1"}>
                 {children}
-                {isVercel && <Analytics />}
               </div>
             )}
             {user && !useDigimytchShell && <Footer variant="static" />}
-            {useDigimytchShell && isVercel && <Analytics />}
           </div>
           <Toaster
             richColors
@@ -118,6 +114,7 @@ export default async function RootLayout({
           {!user && <ScrollButtons />}
           <GlobalAssistantLazy isLoggedIn={!!user} />
           {user && !isAdmin && digimytch && <FeedbackWidget />}
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
