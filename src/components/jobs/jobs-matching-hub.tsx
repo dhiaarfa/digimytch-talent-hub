@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Link2, Target, ClipboardList, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import type { Job, JobMatchResult, Resume } from "@/lib/types";
+import type { Resume } from "@/lib/types";
 import { getHybridJobsWithMatchScores, type JobWithMatch } from "@/utils/actions/digimytch/actions";
 import { ScoreBridgePanel } from "@/components/jobs/score-bridge-panel";
 import { EmptyState } from "@/components/ui/empty-state";
