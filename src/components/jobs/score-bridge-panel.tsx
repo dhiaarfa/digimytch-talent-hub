@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, Sparkles, BookOpen, FileText } from "lucide-react";
+import { Zap, Sparkles, BookOpen, FileText, Mic } from "lucide-react";
 import type { Job, JobMatchResult } from "@/lib/types";
 import { scoreLabel, scoreTailwindBg } from "@/lib/score-theme";
 import { ScoreGauge } from "@/components/jobs/score-gauge";
@@ -172,23 +172,24 @@ export function ScoreBridgePanel({
         </div>
       )}
 
-      <footer className="flex flex-col gap-3 px-5 py-4 border-t border-[var(--digi-border)] bg-white">
+      <footer className="flex flex-col gap-3 px-5 py-4 border-t border-[var(--digi-border)] bg-white dark:bg-[var(--digi-card)]">
+        {/* Primary action */}
         <div className="flex flex-col gap-1">
-          <Button asChild type="button" size="sm" className="btn-digi-primary w-full sm:w-auto">
+          <Button asChild type="button" size="sm" className="btn-digi-primary w-full">
             <Link href={`/resumes?adaptJob=${job.id}`}>
-              <FileText className="h-3.5 w-3.5 mr-1" />
-              Adapter mon CV & rédiger ma lettre pour cette offre
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Adapter mon CV & rédiger ma lettre
             </Link>
           </Button>
           <p className="text-[10px] text-[var(--digi-muted)] leading-snug">
-            Crée un CV sur mesure et une lettre de motivation adaptés à cette annonce.
+            CV sur mesure + lettre de motivation adaptés à cette annonce.
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <TrackApplicationButton jobId={job.id} alreadyTracked={alreadyTracked} />
-          <DeleteJobButton jobId={job.id} jobTitle={title} />
-        </div>
-      </footer>
-    </article>
-  );
-}
+
+        {/* Secondary inter-module CTA */}
+        <Button
+          asChild
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full border-[var(--digi-border)] text-[var(--digi-navy)] hover:bg-[var(--digi-

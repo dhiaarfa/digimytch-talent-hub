@@ -399,7 +399,7 @@ export function InterviewEngine({
         <StepIndicator current={state.userTurns} max={INTERVIEW_MAX_TURNS} />
       </div>
 
-      <div className="h-[min(440px,50vh)] overflow-y-auto p-4 space-y-4 bg-[var(--digi-surface)]/40">
+      <div className="h-[min(440px,45svh)] overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-[var(--digi-surface)]/40">
         {state.messages.map((msg, i) => (
           <MessageBubble
             key={`${i}-${msg.role}`}
@@ -450,7 +450,7 @@ export function InterviewEngine({
       </div>
 
       {state.phase === "complete" && state.debrief && (
-        <div className="mx-4 mb-4 border rounded-xl p-5 bg-gradient-to-br from-[#030A8C]/5 to-[#D10069]/5">
+        <div className="mx-2 sm:mx-4 mb-4 border rounded-xl p-4 sm:p-5 bg-gradient-to-br from-[#030A8C]/5 to-[#D10069]/5">
           <h3 className="font-semibold flex items-center gap-2 mb-3 text-[var(--digi-navy)]">
             <Star size={18} className="text-[#D10069]" aria-hidden />
             {isEn ? "Interview debrief" : "Bilan de l'entretien"}
@@ -622,8 +622,4 @@ function MessageBubble({
           highlight && "ring-2 ring-[#D10069]/30"
         )}
       >
-        <p className="whitespace-pre-wrap">{msg.content}</p>
-      </div>
-    </div>
-  );
-}
+        <p className="whitespace-pre-wrap">{

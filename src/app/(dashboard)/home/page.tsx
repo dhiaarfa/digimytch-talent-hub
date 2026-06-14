@@ -150,7 +150,7 @@ export default async function Home({
   }
 
   return (
-    <main className={`min-h-screen relative sm:pb-12 ${digimytch ? "pb-24" : "pb-40"}`}>
+    <main className={`min-h-screen relative sm:pb-12 ${digimytch ? "pb-20" : "pb-40"}`}>
 
       {/* Welcome Dialog for New Signups */}
       <WelcomeDialog isOpen={!!isNewSignup} />

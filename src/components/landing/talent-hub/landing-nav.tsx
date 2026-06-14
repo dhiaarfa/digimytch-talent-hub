@@ -7,9 +7,12 @@ import { AuthDialog } from "@/components/auth/auth-dialog";
 import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/ui/language-toggle";
 import { useLanguage } from "@/lib/use-language";
+import { useState } from "react";
+import { Menu, X } from "lucide-react";
 
 export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const { isEn } = useLanguage();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const links = isEn
     ? [
         { href: "#how-it-works", label: "How it works" },
@@ -32,6 +35,8 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
             <span className="block text-xs font-normal text-white/60">{PFE_TAGLINE}</span>
           </span>
         </Link>
+
+        {/* Desktop nav links */}
         <nav className="hidden md:flex items-center gap-6" aria-label="Navigation">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="text-sm text-white/75 hover:text-white transition-colors">
@@ -39,6 +44,7 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
             </a>
           ))}
         </nav>
+
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Link
@@ -50,12 +56,4 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
           )}
           <LanguageToggle variant="on-dark" />
           <AuthDialog defaultTab="login">
-            <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
-              {isEn ? "Login" : "Connexion"}
-            </Button>
-          </AuthDialog>
-        </div>
-      </div>
-    </header>
-  );
-}
+            <Button variant="ghost" size="sm" className="text-w

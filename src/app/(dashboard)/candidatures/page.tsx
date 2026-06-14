@@ -22,8 +22,9 @@ export default async function CandidaturesPage() {
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+    <main className="max-w-[1400px] mx-auto px-2 sm:px-6 py-6 space-y-5">
       <DemoBanner />
+      <div className="px-2 sm:px-0">
       <PageGuide
         title="Mes candidatures"
         description="Suivez chaque démarche. Les cartes arrivent depuis Analyser une offre ; vous les déplacez ensuite entre les colonnes."
@@ -34,7 +35,5 @@ export default async function CandidaturesPage() {
         ]}
         action={{ label: "Analyser une offre", href: "/jobs" }}
       />
-      <CandidaturesKanbanLazy initialRows={rows} />
-    </main>
-  );
-}
+      </div>
+      {/* Mobile swip

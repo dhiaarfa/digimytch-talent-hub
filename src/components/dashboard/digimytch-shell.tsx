@@ -40,7 +40,25 @@ import {
   BarChart3,
   Trash2,
   User,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
+
+// Primary mobile nav (always visible — 5 items)
+const MOBILE_PRIMARY_ROUTES = [
+  { href: "/home", icon: LayoutDashboard, labelKey: "navHome" as const },
+  { href: "/resumes", icon: FileText, labelKey: "navResume" as const },
+  { href: "/jobs", icon: Target, labelKey: "navJobs" as const },
+  { href: "/candidatures", icon: ClipboardList, labelKey: "navApplications" as const },
+  { href: "/entretiens", icon: Mic, labelKey: "navInterviews" as const },
+] as const;
+
+// Secondary items shown in the "Plus" sheet
+const MOBILE_SECONDARY_ROUTES = [
+  { href: "/score-cv", icon: BarChart3, labelKey: "navScoreCv" as const },
+  { href: "/linkedin", icon: Linkedin, labelKey: "navLinkedIn" as const },
+  { href: "/formations", icon: BookOpen, labelKey: "navCourses" as const },
+] as const;
 
 const CANDIDATE_NAV_ROUTES = [
   { href: "/home", icon: LayoutDashboard, labelKey: "navHome" as const },
@@ -99,7 +117,7 @@ function NavLink({
       className={cn(
         "flex items-center gap-2 rounded-lg transition-colors",
         mobile
-          ? "flex-col justify-center min-w-[4.25rem] shrink-0 px-1 py-2.5 text-[10px] font-medium"
+          ? "flex-col justify-center flex-1 shrink-0 px-1 py-2.5 text-[10px] font-medium"
           : "px-3 py-2.5 text-sm font-medium min-h-[2.75rem]",
         active
           ? mobile
@@ -166,6 +184,134 @@ function SidebarFooterLogout({ label }: { label: string }) {
   );
 }
 
+function MobilePlusSheet({
+  open,
+  onClose,
+  secondaryItems,
+  t,
+  userName,
+  avatarUrl,
+}: {
+  open: boolean;
+  onClose: () => void;
+  secondaryItems: { href: string; icon: typeof LayoutDashboard; label: string }[];
+  t: ReturnType<typeof appCopy>;
+  userName?: string;
+  avatarUrl?: string;
+}) {
+  const pathname = usePathname();
+  const { promptNavigation, isBlocking } = useUnsavedNavigationPrompt();
+
+  // Close on route change
+  useEffect(() => {
+    onClose();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      {/* Sheet */}
+      <div
+        className="fixed bottom-[4.5rem] inset-x-0 z-[61] mx-2 rounded-2xl border border-[var(--digi-border)] bg-white dark:bg-[var(--digi-card)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Plus de pages"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--digi-border)]">
+          {userName && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#030A8C] to-[#D10069] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {userName.charAt(0)?.toUpperCase() || "U"}
+              </div>
+              <span className="text-sm font-medium text-[var(--digi-navy)] truncate">{userName}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto p-1.5 rounded-lg text-[var(--digi-muted)] hover:bg-[var(--digi-surface)] transition-colors"
+            aria-label="Fermer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Secondary nav items */}
+        <div className="grid grid-cols-3 gap-1 p-3">
+          {secondaryItems.map(({ href, icon: Icon, label }) => {
+            const active = pathname === href || pathname.startsWith(`${href}/`);
+            return (
+              <Link
+                key={href}
+                href={href}
+                prefetch
+                onClick={(e) => {
+                  if (isBlocking) {
+                    e.preventDefault();
+                    promptNavigation(href);
+                  }
+                  onClose();
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[10px] font-medium transition-colors",
+                  active
+                    ? "bg-[var(--digi-accent)]/10 text-[var(--digi-accent)]"
+                    : "text-[var(--digi-muted)] hover:bg-[var(--digi-surface)]"
+                )}
+              >
+                <Icon className="h-5 w-5" aria-hidden />
+                <span className="leading-tight text-center">{label}</span>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Footer links */}
+        <div className="grid grid-cols-2 gap-1 px-3 pb-3 border-t border-[var(--digi-border)] pt-2">
+          {[
+            { href: "/profile", icon: User, label: t.navProfile },
+            { href: "/settings", icon: Settings, label: t.navSettings },
+          ].map(({ href, icon: Icon, label }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                prefetch
+                onClick={() => onClose()}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors",
+                  active
+                    ? "bg-[var(--digi-accent)]/10 text-[var(--digi-accent)]"
+                    : "text-[var(--digi-muted)] hover:bg-[var(--digi-surface)]"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+        <div className="px-3 pb-3">
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function DigimytchShell({
   children,
   isProPlan,
@@ -181,6 +327,7 @@ export function DigimytchShell({
 }) {
   const [resolvedAvatar, setResolvedAvatar] = useState(avatarUrl);
   const [avatarBroken, setAvatarBroken] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const { lang } = useLanguage();
   const t = appCopy(lang);
   const { defaultModel, setDefaultModel } = useDefaultModel();
@@ -204,142 +351,4 @@ export function DigimytchShell({
   useEffect(() => {
     if (prefetchDone.current) return;
     prefetchDone.current = true;
-    const routes = isAdmin ? ADMIN_PREFETCH_ROUTES : CANDIDATE_PREFETCH_ROUTES;
-    for (const href of routes) {
-      router.prefetch(href);
-    }
-  }, [isAdmin, router]);
-
-  useEffect(() => {
-    setResolvedAvatar(avatarUrl);
-    setAvatarBroken(false);
-  }, [avatarUrl]);
-
-  useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-    if (!defaultModel) {
-      setDefaultModel(getDefaultModel(isProPlan));
-    }
-  }, [defaultModel, isProPlan, setDefaultModel]);
-
-  return (
-    <UnsavedNavigationGuardProvider>
-    <div className="flex min-h-screen bg-[var(--digi-surface)]">
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[240px] flex-col border-r border-[var(--digi-border)] bg-white/95 dark:bg-[var(--digi-card)]/95 backdrop-blur-md">
-        <div className="px-4 py-4 border-b border-[var(--digi-border)]">
-          <div className="flex items-center justify-between gap-2">
-            <Link href={homeHref} className="flex items-center gap-2 min-w-0">
-              <AppImage
-                src="/digimytch-logo.png"
-                alt="Digimytch"
-                width={36}
-                height={36}
-                className="rounded-md shrink-0"
-                priority
-              />
-              <span className="font-display font-bold text-[var(--digi-navy)] text-sm leading-tight truncate">
-                Talent Hub
-                <span className="block text-[10px] font-normal text-[var(--digi-muted)]">
-                  {PFE_TAGLINE}
-                </span>
-              </span>
-            </Link>
-            <NotificationBell />
-          </div>
-        </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Menu principal">
-          {navItems.map((item) => (
-            <NavLink key={item.href} {...item} />
-          ))}
-        </nav>
-        {!isAdmin && (
-          <div className="px-3 pb-2">
-            <Link
-              href="/formations"
-              className="block rounded-xl transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--digi-accent)]"
-              title={t.navLoyalty}
-            >
-              <LoyaltyPointsBadge compact className="w-full justify-center" />
-            </Link>
-          </div>
-        )}
-        {!isAdmin && <DigimytchModelSelector />}
-        <div className="px-3 py-3 border-t border-[var(--digi-border)] space-y-0.5">
-          {userName && (
-            <div className="flex items-center gap-2 min-w-0 px-1 pb-2 mb-1">
-              {resolvedAvatar && !avatarBroken ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={resolvedAvatar}
-                  alt=""
-                  className="w-9 h-9 rounded-full object-cover shrink-0 border border-[var(--digi-border)]"
-                  onError={() => setAvatarBroken(true)}
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#030A8C] to-[#D10069] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {userName.charAt(0)?.toUpperCase() || "U"}
-                </div>
-              )}
-              <span className="text-xs font-medium text-[var(--digi-navy)] truncate">
-                {userName}
-              </span>
-            </div>
-          )}
-          <SidebarFooterLink
-            href="/profile"
-            icon={User}
-            label={t.navProfile}
-            active={pathname === "/profile" || pathname.startsWith("/profile/")}
-          />
-          <SidebarFooterLink
-            href="/settings"
-            icon={Settings}
-            label={t.navSettings}
-            active={pathname === "/settings" || pathname.startsWith("/settings/")}
-          />
-          <SidebarFooterLogout label={t.navLogout} />
-          <div className="flex items-center justify-start gap-1 pt-2 px-1">
-            <ThemeToggle />
-            <LanguageToggle />
-          </div>
-        </div>
-      </aside>
-
-      <div className="md:hidden fixed top-3 right-3 z-50">
-        <NotificationBell align="end" />
-      </div>
-
-      <div className="flex-1 flex flex-col md:pl-[240px] pb-20 md:pb-0 min-w-0">
-        <main className="flex-1">{children}</main>
-      </div>
-
-      {!isAdmin && (
-        <div
-          className="md:hidden fixed bottom-[4.25rem] inset-x-0 z-40 flex justify-center px-3 pointer-events-none"
-          aria-hidden={false}
-        >
-          <Link
-            href="/formations"
-            className="pointer-events-auto shadow-sm"
-            title={t.navLoyalty}
-          >
-            <LoyaltyPointsBadge compact />
-          </Link>
-        </div>
-      )}
-
-      <nav
-        className="digimytch-mobile-nav md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-[var(--digi-border)] bg-white/95 dark:bg-[var(--digi-card)]/95 backdrop-blur-md"
-        aria-label="Navigation mobile"
-      >
-        <div className="flex overflow-x-auto scrollbar-none px-1 pb-[env(safe-area-inset-bottom)]">
-          {navItems.map((item) => (
-            <NavLink key={item.href} {...item} mobile />
-          ))}
-        </div>
-      </nav>
-    </div>
-    </UnsavedNavigationGuardProvider>
-  );
-}
+    const routes = isAdmin 

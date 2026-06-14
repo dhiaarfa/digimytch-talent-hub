@@ -175,7 +175,7 @@ function DroppableColumn({
 
   return (
     <div
-      className={`flex flex-col min-w-[260px] flex-1 rounded-xl border border-[var(--digi-border)] bg-[var(--digi-surface)] ${isDropTarget || isOver ? "ring-2 ring-[var(--digi-accent)]" : ""}`}
+      className={`flex flex-col min-w-[80vw] sm:min-w-[260px] flex-1 rounded-xl border border-[var(--digi-border)] bg-[var(--digi-surface)] snap-start ${isDropTarget || isOver ? "ring-2 ring-[var(--digi-accent)]" : ""}`}
     >
       <header
         className="flex items-center gap-2 px-3 py-3 border-b border-[var(--digi-border)] rounded-t-xl"
@@ -433,7 +433,7 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
         }}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory -mx-2 px-2 sm:mx-0 sm:px-0">
           {KANBAN_COLUMNS.map((col) => {
             const Icon = COLUMN_ICONS[col.id];
             return (
@@ -457,9 +457,4 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
 
       <InterviewModal
         open={interviewModal.open}
-        onOpenChange={(open) => setInterviewModal((s) => ({ ...s, open }))}
-        company={interviewModal.company}
-      />
-    </>
-  );
-}
+        onOpenChange={(open) => setInterviewModal((s) => ({ ...s,
