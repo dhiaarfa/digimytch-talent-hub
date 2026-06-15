@@ -24,7 +24,7 @@ export function DemoBanner() {
   return (
     <div
       role="status"
-      className="mb-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-900/40 px-4 py-3 text-sm animate-fade-in"
+      className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-900/40 px-4 py-3 text-sm animate-fade-in"
     >
       <Info className="h-4 w-4 shrink-0 text-blue-500 mt-0.5" aria-hidden />
       <p className="flex-1 leading-relaxed text-[var(--digi-dark)] dark:text-[var(--digi-dark-fg)]">

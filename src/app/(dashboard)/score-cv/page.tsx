@@ -27,7 +27,7 @@ export default async function ScoreCvPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
       <DemoBanner />
-      <div className="flex flex-wrap items-center gap-2 mb-2">
+      <div className="flex flex-wrap items-center gap-2">
         <AiPoweredBadge />
       </div>
       <PageGuide

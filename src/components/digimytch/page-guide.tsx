@@ -25,7 +25,7 @@ export function PageGuide({
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="mb-6 space-y-3 animate-fade-in-up">
+    <header className="space-y-2 animate-fade-in-up">
       {backHref && (
         <Link
           href={backHref}

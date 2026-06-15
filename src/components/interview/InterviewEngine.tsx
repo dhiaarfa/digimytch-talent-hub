@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Loader2, Mic, RotateCcw, Send, Star, Volume2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,64 @@ function StepIndicator({ current, max }: { current: number; max: number }) {
   );
 }
 
+/** Render inline markdown: **bold** → <strong> */
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("**") && p.endsWith("**") ? (
+          <strong key={i} className="font-semibold text-[var(--digi-navy)]">
+            {p.slice(2, -2)}
+          </strong>
+        ) : (
+          <span key={i}>{p}</span>
+        )
+      )}
+    </>
+  );
+}
+
+/** Render debrief with bold headers and bullet lists */
+function DebriefContent({ text }: { text: string }) {
+  const lines = text.split(/\r?\n/);
+  const elements: React.ReactNode[] = [];
+  let bullets: string[] = [];
+  let key = 0;
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+    elements.push(
+      <ul key={key++} className="list-disc pl-5 space-y-1 my-1.5">
+        {bullets.map((b, i) => (
+          <li key={i} className="text-sm leading-relaxed">{renderInline(b)}</li>
+        ))}
+      </ul>
+    );
+    bullets = [];
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (t.startsWith("- ") || t.startsWith("• ")) {
+      bullets.push(t.replace(/^[-•]\s+/, ""));
+    } else {
+      flushBullets();
+      if (!t) {
+        elements.push(<div key={key++} className="h-1.5" />);
+      } else {
+        elements.push(
+          <p key={key++} className="text-sm leading-relaxed">
+            {renderInline(t)}
+          </p>
+        );
+      }
+    }
+  }
+  flushBullets();
+  return <div className="space-y-0.5">{elements}</div>;
+}
+
 export interface InterviewEngineProps {
   scenario: InterviewScenario;
   aiConfig: AIConfig;
@@ -108,6 +166,7 @@ export function InterviewEngine({
   const voiceEnabledRef = useRef(voiceEnabled);
   const inFlightRef = useRef(false);
   const bootedRef = useRef(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     stateRef.current = state;
@@ -115,6 +174,10 @@ export function InterviewEngine({
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
   }, [voiceEnabled]);
+  // Auto-scroll to the latest message whenever messages list or phase changes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.messages, state.phase]);
 
   const submitAnswerStable = useRef<(raw: string) => void>(() => {});
 
@@ -158,6 +221,19 @@ export function InterviewEngine({
     },
     [isEn]
   );
+
+  const retryMic = useCallback(async () => {
+    const result = await requestMicrophoneAccess();
+    if (result.ok) {
+      setMicDenied(false);
+    } else {
+      toast({
+        title: isEn ? "Mic denied" : "Micro refusé",
+        description: result.error ?? (isEn ? "Check your browser settings." : "Vérifiez les paramètres du navigateur."),
+        variant: "destructive",
+      });
+    }
+  }, [isEn]);
 
   const { start: startRecognition, stop: stopRecognition, isRunning } =
     useInterviewRecognition(speechLang, {
@@ -244,8 +320,8 @@ export function InterviewEngine({
       },
     });
 
-    // 12 s fallback — Chrome sometimes never fires onend; longer window for full questions
-    safetyTimer = setTimeout(() => dispatch({ type: "SPEAK_DONE" }), 12_000);
+    // 30 s fallback — Chrome sometimes never fires onend; generous window for long responses
+    safetyTimer = setTimeout(() => dispatch({ type: "SPEAK_DONE" }), 30_000);
 
     return () => {
       cancelSpeech();
@@ -447,6 +523,8 @@ export function InterviewEngine({
             {isEn ? "Skip voice" : "Passer la voix"}
           </Button>
         )}
+        {/* Scroll sentinel — always at the bottom of the message list */}
+        <div ref={messagesEndRef} aria-hidden />
       </div>
 
       {state.phase === "complete" && state.debrief && (
@@ -455,7 +533,7 @@ export function InterviewEngine({
             <Star size={18} className="text-[#D10069]" aria-hidden />
             {isEn ? "Interview debrief" : "Bilan de l'entretien"}
           </h3>
-          <p className="text-sm leading-relaxed whitespace-pre-line">{state.debrief}</p>
+          <DebriefContent text={state.debrief} />
           <div className="flex flex-wrap gap-2 mt-4">
             <Button type="button" className="btn-digi-primary text-sm" onClick={onReset}>
               {isEn ? "Restart" : "Recommencer"}
@@ -491,10 +569,19 @@ export function InterviewEngine({
             </div>
           )}
           {micDenied && (
-            <div className="px-4 pt-3 pb-0">
-              <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
-                {isEn ? "Mic unavailable — type your answer below." : "Micro indisponible — tapez votre reponse ci-dessous."}
+            <div className="px-4 pt-3 pb-0 flex items-center gap-2">
+              <p className="flex-1 text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                {isEn ? "Mic unavailable — type your answer below." : "Micro indisponible — tapez votre réponse ci-dessous."}
               </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0 text-xs"
+                onClick={() => void retryMic()}
+              >
+                {isEn ? "Retry mic" : "Réessayer"}
+              </Button>
             </div>
           )}
 
@@ -514,7 +601,7 @@ export function InterviewEngine({
                     {isEn ? "Listening… speak now" : "Micro ouvert — parlez maintenant"}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {isEn ? "Auto-submits after 2s silence" : "Envoi automatique après 2s de silence"}
+                    {isEn ? "Auto-submits after 3s silence" : "Envoi automatique après 3s de silence"}
                   </p>
                 </div>
               ) : (
@@ -557,12 +644,7 @@ export function InterviewEngine({
             </button>
           </div>
 
-          <div className="flex justify-between items-center px-4 pb-3">
-            <p className="text-xs text-muted-foreground">
-              {state.phase === "listening" && isRunning()
-                ? ""   /* shown above mic indicator */
-                : ""}
-            </p>
+          <div className="flex justify-end items-center px-4 pb-3">
             <Button
               type="button"
               size="sm"
@@ -622,4 +704,8 @@ function MessageBubble({
           highlight && "ring-2 ring-[#D10069]/30"
         )}
       >
-        <p className="whitespace-pre-wrap">{
+        <p className="whitespace-pre-wrap">{msg.content}</p>
+      </div>
+    </div>
+  );
+}

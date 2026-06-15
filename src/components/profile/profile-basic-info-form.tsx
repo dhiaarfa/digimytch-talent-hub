@@ -89,13 +89,14 @@ export function ProfileBasicInfoForm({ profile, onChange }: ProfileBasicInfoForm
                 </div>
                 <Input
                   type="tel"
+                  maxLength={8}
                   value={profile.phone_number || ''}
                   onChange={(e) => onChange('phone_number', e.target.value)}
                   className="pr-12 bg-white/50 border-gray-200 rounded-lg
                     focus:border-teal-500/40 focus:ring-2 focus:ring-teal-500/20
                     hover:border-teal-500/30 hover:bg-white/60 transition-colors
                     placeholder:text-gray-400"
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="XX XXX XXX"
                 />
                 <div className="absolute -top-2.5 left-2 px-1 bg-white/80 text-xs font-medium text-teal-700">
                   PHONE
