@@ -36,13 +36,4 @@ export default async function CandidaturesPage() {
         action={{ label: "Analyser une offre", href: "/jobs" }}
       />
       </div>
-      {/* Mobile swipe hint */}
-      <p className="sm:hidden text-xs text-[var(--digi-muted)] text-center flex items-center justify-center gap-1">
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
-        Glissez horizontalement pour voir toutes les colonnes
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-      </p>
-      <CandidaturesKanbanLazy initialRows={rows} />
-    </main>
-  );
-}
+      {/* Mobile swip

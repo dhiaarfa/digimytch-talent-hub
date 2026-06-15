@@ -457,9 +457,4 @@ export function CandidaturesKanban({ initialRows }: { initialRows: JobApplicatio
 
       <InterviewModal
         open={interviewModal.open}
-        onOpenChange={(open) => setInterviewModal((s) => ({ ...s, open }))}
-        company={interviewModal.company}
-      />
-    </>
-  );
-}
+        onOpenChange={(open) => setInterviewModal((s) => ({ ...s,

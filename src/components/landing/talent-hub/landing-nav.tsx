@@ -35,6 +35,7 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
             <span className="block text-xs font-normal text-white/60">{PFE_TAGLINE}</span>
           </span>
         </Link>
+
         {/* Desktop nav links */}
         <nav className="hidden md:flex items-center gap-6" aria-label="Navigation">
           {links.map((l) => (
@@ -43,6 +44,7 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
             </a>
           ))}
         </nav>
+
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Link
@@ -54,43 +56,4 @@ export function LandingNav({ isAdmin = false }: { isAdmin?: boolean }) {
           )}
           <LanguageToggle variant="on-dark" />
           <AuthDialog defaultTab="login">
-            <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
-              {isEn ? "Login" : "Connexion"}
-            </Button>
-          </AuthDialog>
-          {/* Mobile menu toggle */}
-          <button
-            type="button"
-            className="md:hidden p-2 rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-colors"
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile dropdown menu */}
-      {mobileOpen && (
-        <nav
-          className="md:hidden border-t border-white/10 bg-black/60 backdrop-blur-md"
-          aria-label="Navigation mobile"
-        >
-          <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-1">
-            {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                onClick={() => setMobileOpen(false)}
-                className="text-sm text-white/80 hover:text-white py-2.5 px-3 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
-        </nav>
-      )}
-    </header>
-  );
-}
+            <Button variant="ghost" size="sm" className="text-w

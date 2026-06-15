@@ -105,19 +105,6 @@ export function LoginForm() {
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="remember-me"
-          name="remember_me"
-          defaultChecked
-          className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 cursor-pointer"
-        />
-        <label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer select-none">
-          Se souvenir de moi
-        </label>
-      </div>
-
       {state.status === "error" && state.message && (
         <Alert variant="destructive" className="bg-red-50/50 text-red-900 border-red-200/50" role="alert">
           <AlertDescription>{state.message}</AlertDescription>

@@ -197,4 +197,4 @@ export const BasicInfoForm = memo(function BasicInfoFormComponent({
       </Card>
     </div>
   );
-}, areBasicInfoProp
+}, areBasicInfoPropsEqual);
