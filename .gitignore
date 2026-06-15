@@ -78,3 +78,7 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+# Helper/push scripts at root (use scripts/ folder instead)
+*.bat
+*.ps1
+!scripts/*.ps1
