@@ -190,14 +190,12 @@ function MobilePlusSheet({
   secondaryItems,
   t,
   userName,
-  avatarUrl,
 }: {
   open: boolean;
   onClose: () => void;
   secondaryItems: { href: string; icon: typeof LayoutDashboard; label: string }[];
   t: ReturnType<typeof appCopy>;
   userName?: string;
-  avatarUrl?: string;
 }) {
   const pathname = usePathname();
   const { promptNavigation, isBlocking } = useUnsavedNavigationPrompt();
@@ -351,4 +349,154 @@ export function DigimytchShell({
   useEffect(() => {
     if (prefetchDone.current) return;
     prefetchDone.current = true;
-    const routes = isAdmin 
+    const routes = isAdmin ? ADMIN_PREFETCH_ROUTES : CANDIDATE_PREFETCH_ROUTES;
+    for (const href of routes) {
+      router.prefetch(href);
+    }
+  }, [isAdmin, router]);
+
+  useEffect(() => {
+    setResolvedAvatar(avatarUrl);
+    setAvatarBroken(false);
+  }, [avatarUrl]);
+
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    if (!defaultModel) {
+      setDefaultModel(getDefaultModel(isProPlan));
+    }
+  }, [defaultModel, isProPlan, setDefaultModel]);
+
+  return (
+    <UnsavedNavigationGuardProvider>
+    <div className="flex min-h-screen bg-[var(--digi-surface)]">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[240px] flex-col border-r border-[var(--digi-border)] bg-white/95 dark:bg-[var(--digi-card)]/95 backdrop-blur-md">
+        <div className="px-4 py-4 border-b border-[var(--digi-border)]">
+          <div className="flex items-center justify-between gap-2">
+            <Link href={homeHref} className="flex items-center gap-2 min-w-0">
+              <AppImage
+                src="/digimytch-logo.png"
+                alt="Digimytch"
+                width={36}
+                height={36}
+                className="rounded-md shrink-0"
+                priority
+              />
+              <span className="font-display font-bold text-[var(--digi-navy)] text-sm leading-tight truncate">
+                Talent Hub
+                <span className="block text-[10px] font-normal text-[var(--digi-muted)]">
+                  {PFE_TAGLINE}
+                </span>
+              </span>
+            </Link>
+            <NotificationBell />
+          </div>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Menu principal">
+          {navItems.map((item) => (
+            <NavLink key={item.href} {...item} />
+          ))}
+        </nav>
+        {!isAdmin && (
+          <div className="px-3 pb-2">
+            <Link
+              href="/formations"
+              className="block rounded-xl transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--digi-accent)]"
+              title={t.navLoyalty}
+            >
+              <LoyaltyPointsBadge compact className="w-full justify-center" />
+            </Link>
+          </div>
+        )}
+        {!isAdmin && <DigimytchModelSelector />}
+        <div className="px-3 py-3 border-t border-[var(--digi-border)] space-y-0.5">
+          {userName && (
+            <div className="flex items-center gap-2 min-w-0 px-1 pb-2 mb-1">
+              {resolvedAvatar && !avatarBroken ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolvedAvatar}
+                  alt=""
+                  className="w-9 h-9 rounded-full object-cover shrink-0 border border-[var(--digi-border)]"
+                  onError={() => setAvatarBroken(true)}
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#030A8C] to-[#D10069] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {userName.charAt(0)?.toUpperCase() || "U"}
+                </div>
+              )}
+              <span className="text-xs font-medium text-[var(--digi-navy)] truncate">
+                {userName}
+              </span>
+            </div>
+          )}
+          <SidebarFooterLink
+            href="/profile"
+            icon={User}
+            label={t.navProfile}
+            active={pathname === "/profile" || pathname.startsWith("/profile/")}
+          />
+          <SidebarFooterLink
+            href="/settings"
+            icon={Settings}
+            label={t.navSettings}
+            active={pathname === "/settings" || pathname.startsWith("/settings/")}
+          />
+          <SidebarFooterLogout label={t.navLogout} />
+          <div className="flex items-center justify-start gap-1 pt-2 px-1">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
+        </div>
+      </aside>
+
+      <div className="md:hidden fixed top-3 right-3 z-50">
+        <NotificationBell align="end" />
+      </div>
+
+      <div className="flex-1 flex flex-col md:pl-[240px] pb-20 md:pb-0 min-w-0">
+        <main className="flex-1">{children}</main>
+      </div>
+
+      <nav
+        className="digimytch-mobile-nav md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-[var(--digi-border)] bg-white/95 dark:bg-[var(--digi-card)]/95 backdrop-blur-md"
+        aria-label="Navigation mobile"
+      >
+        <div className="flex items-stretch pb-[env(safe-area-inset-bottom)] min-h-[4rem]">
+          {MOBILE_PRIMARY_ROUTES.map((item) => (
+            <NavLink
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={t[item.labelKey]}
+              mobile
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => setPlusOpen(true)}
+            className="flex-1 shrink-0 flex flex-col items-center justify-center gap-1 py-2 text-[var(--digi-muted)] hover:text-[var(--digi-navy)] transition-colors"
+            aria-label="Plus"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="text-[10px] leading-none">Plus</span>
+          </button>
+        </div>
+      </nav>
+
+      <MobilePlusSheet
+        open={plusOpen}
+        onClose={() => setPlusOpen(false)}
+        secondaryItems={MOBILE_SECONDARY_ROUTES.map((item) => ({
+          href: item.href,
+          icon: item.icon,
+          label: t[item.labelKey],
+        }))}
+        t={t}
+        userName={userName}
+      />
+    </div>
+    </UnsavedNavigationGuardProvider>
+  );
+}
