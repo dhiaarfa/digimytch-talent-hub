@@ -635,4 +635,77 @@ export function InterviewEngine({
             />
             <button
               type="button"
-              
+              disabled={inputDisabled || !inputValue.trim()}
+              onClick={() => submitAnswerStable.current(inputValue)}
+              className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#030A8C] to-[#D10069] text-white flex items-center justify-center disabled:opacity-50 shrink-0"
+              aria-label={isEn ? "Send" : "Envoyer"}
+            >
+              <Send size={16} aria-hidden />
+            </button>
+          </div>
+
+          <div className="flex justify-end items-center px-4 pb-3">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={state.userTurns < 1 || state.phase === "processing"}
+              onClick={finishInterview}
+            >
+              {isEn ? "Finish" : "Terminer"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MessageBubble({
+  msg,
+  isUser,
+  userAvatarUrl,
+  userDisplayName,
+  highlight,
+}: {
+  msg: InterviewMessage;
+  isUser: boolean;
+  userAvatarUrl: string | null;
+  userDisplayName: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={cn("flex items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
+      {isUser ? (
+        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
+          {userAvatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-[#030A8C] to-[#D10069] flex items-center justify-center text-white text-xs font-bold">
+              {userDisplayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className="w-9 h-9 rounded-full bg-gradient-to-br from-[#030A8C] to-[#D10069] flex items-center justify-center shrink-0"
+          aria-hidden
+        >
+          <span className="text-lg">👩‍💼</span>
+        </div>
+      )}
+      <div
+        className={cn(
+          "max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed",
+          isUser
+            ? "bg-[#030A8C] text-white rounded-br-sm"
+            : "bg-white border border-gray-100 shadow-sm text-gray-800 rounded-bl-sm",
+          highlight && "ring-2 ring-[#D10069]/30"
+        )}
+      >
+        <p className="whitespace-pre-wrap">{msg.content}</p>
+      </div>
+    </div>
+  );
+}
