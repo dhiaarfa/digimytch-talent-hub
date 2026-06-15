@@ -173,6 +173,7 @@ export function ScoreBridgePanel({
       )}
 
       <footer className="flex flex-col gap-3 px-5 py-4 border-t border-[var(--digi-border)] bg-white dark:bg-[var(--digi-card)]">
+        <div className="flex flex-col gap-1">
         {/* Primary action */}
         <div className="flex flex-col gap-1">
           <Button asChild type="button" size="sm" className="btn-digi-primary w-full">
@@ -185,6 +186,7 @@ export function ScoreBridgePanel({
             CV sur mesure + lettre de motivation adaptés à cette annonce.
           </p>
         </div>
+        </div>
 
         {/* Secondary inter-module CTA */}
         <Button
@@ -192,4 +194,20 @@ export function ScoreBridgePanel({
           type="button"
           size="sm"
           variant="outline"
-          className="w-full border-[var(--digi-border)] text-[var(--digi-navy)] hover:bg-[var(--digi-
+          className="w-full border-[var(--digi-border)] text-[var(--digi-navy)] hover:bg-[var(--digi-surface)]"
+        >
+          <Link href={`/entretiens?jobTitle=${encodeURIComponent(title)}`}>
+            <Mic className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+            Simuler un entretien pour ce poste
+          </Link>
+        </Button>
+
+        {/* Track + delete */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TrackApplicationButton jobId={job.id} alreadyTracked={alreadyTracked} />
+          <DeleteJobButton jobId={job.id} jobTitle={title} />
+        </div>
+      </footer>
+    </article>
+  );
+}

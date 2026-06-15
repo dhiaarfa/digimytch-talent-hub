@@ -622,4 +622,8 @@ function MessageBubble({
           highlight && "ring-2 ring-[#D10069]/30"
         )}
       >
-        <p className="whitespace-pre-wrap">{
+        <p className="whitespace-pre-wrap">{msg.content}</p>
+      </div>
+    </div>
+  );
+}
