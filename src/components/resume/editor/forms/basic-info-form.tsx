@@ -35,6 +35,7 @@ const BasicInfoField = memo(function BasicInfoField({
   icon: LucideIcon;
   placeholder: string;
   type?: string;
+  maxLength?: number;
 }) {
   const { dispatch } = useResumeContext();
   
@@ -58,6 +59,7 @@ const BasicInfoField = memo(function BasicInfoField({
           hover:border-teal-500/30 hover:bg-white/60 transition-colors
           placeholder:text-gray-400"
         placeholder={placeholder}
+        maxLength={maxLength}
       />
       <div className="absolute -top-2 left-2 px-1 bg-white/80 text-[9px] font-medium text-teal-700">
         {label}
@@ -148,8 +150,9 @@ export const BasicInfoForm = memo(function BasicInfoFormComponent({
               value={resume.phone_number || ''}
               label="PHONE"
               icon={Phone}
-              placeholder="+1 (555) 000-0000"
+              placeholder="XX XXX XXX"
               type="tel"
+              maxLength={8}
             />
 
             <BasicInfoField

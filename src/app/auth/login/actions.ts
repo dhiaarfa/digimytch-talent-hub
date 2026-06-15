@@ -11,6 +11,16 @@ import type { AuthFormState } from "@/components/auth/auth-form-state";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import { captureServerAnalyticsEvent } from "@/lib/analytics/server";
 
+function getSiteUrl(): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+}
+
+
+
 // Auto-create Pro subscription for new users (for local development)
 const AUTO_PRO_SUBSCRIPTION = process.env.AUTO_PRO_SUBSCRIPTION === 'true';
 
@@ -71,7 +81,7 @@ export async function signup(formData: FormData): Promise<AuthResult> {
       data: {
         full_name: formData.get('name') as string,
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`
+      emailRedirectTo: `${getSiteUrl()}/auth/confirm`
     }
   }
   const { data: signupData, error: signupError } = await supabase.auth.signUp(data);
@@ -172,7 +182,7 @@ export async function signupWithState(
 
   return {
     status: "success",
-    message: "Account created. Check your email to confirm your account.",
+    message: "Compte créé ! Vérifiez votre boîte email pour confirmer votre inscription.",
   };
 }
 
@@ -193,7 +203,7 @@ export async function resetPasswordForEmail(formData: FormData): Promise<AuthRes
   const email = formData.get('email') as string;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/update-password`,
+    redirectTo: `${getSiteUrl()}/auth/update-password`,
   });
 
   if (error) {
@@ -211,7 +221,7 @@ export async function signInWithGithub(): Promise<GithubAuthResult> {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        redirectTo: `${getSiteUrl()}/auth/callback`,
         queryParams: {
           next: '/'
         }
@@ -243,7 +253,7 @@ export async function signInWithGoogle(): Promise<GithubAuthResult> {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        redirectTo: `${getSiteUrl()}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
