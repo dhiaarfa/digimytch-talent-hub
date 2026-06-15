@@ -21,13 +21,14 @@ function areBasicInfoPropsEqual(
 }
 
 // Create memoized field component
-const BasicInfoField = memo(function BasicInfoField({ 
-  field, 
-  value, 
-  label, 
+const BasicInfoField = memo(function BasicInfoField({
+  field,
+  value,
+  label,
   icon: Icon,
   placeholder,
-  type = 'text'
+  type = 'text',
+  maxLength,
 }: {
   field: keyof Resume;
   value: string;
@@ -196,4 +197,4 @@ export const BasicInfoForm = memo(function BasicInfoFormComponent({
       </Card>
     </div>
   );
-}, areBasicInfoPropsEqual); 
+}, areBasicInfoProp
