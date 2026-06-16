@@ -1,5 +1,4 @@
 import { getFormationHubData } from "@/utils/actions/digimytch/actions";
-import { getCachedJobsWithMatch } from "@/lib/digimytch-queries";
 import { FormationsHub } from "@/components/digimytch/formations-hub";
 import { DemoBanner } from "@/components/digimytch/demo-banner";
 import { PageGuide } from "@/components/digimytch/page-guide";
@@ -8,25 +7,6 @@ import { CvRequiredGate } from "@/components/digimytch/cv-required-gate";
 import { LoyaltyPointsBadge } from "@/components/digimytch/loyalty-points-badge";
 
 export default async function FormationsPage() {
-  // Check for CV first (lighter query before loading all formations)
-  let hasResume = false;
-  try {
-    const { resume } = await getCachedJobsWithMatch();
-    hasResume = Boolean(resume);
-  } catch {
-    // If the check fails, let formations load anyway (graceful degradation)
-    hasResume = true;
-  }
-
-  if (!hasResume) {
-    return (
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        <DemoBanner />
-        <CvRequiredGate feature="les formations personnalisées et les recommandations IA" />
-      </main>
-    );
-  }
-
   let data;
   try {
     data = await getFormationHubData();
@@ -40,7 +20,16 @@ export default async function FormationsPage() {
     );
   }
 
-  const { courses, ranked, gapUnion } = data;
+  const { courses, ranked, gapUnion, hasResume } = data;
+
+  if (!hasResume) {
+    return (
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        <DemoBanner />
+        <CvRequiredGate feature="les formations personnalisées et les recommandations IA" />
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">

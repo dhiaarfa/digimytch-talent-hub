@@ -1,6 +1,7 @@
 "use server";
 
-import { generateText, type CoreMessage } from "ai";
+import { generateObject, generateText, type CoreMessage } from "ai";
+import { z } from "zod";
 import type { AIConfig } from "@/lib/ai-models";
 import { runTrackedAIRequest } from "@/lib/ai/run-tracked-request";
 import {
@@ -151,49 +152,46 @@ async function runInterviewAI(input: {
 
   const preferredModel =
     input.config?.model ?? selectDigimytchModelForTask("interview");
-  // Use interview-specific chain (no thinking/reasoning models that leak CoT)
   const chain = getInterviewModelFallbackChain(preferredModel);
-  const maxTokens = input.maxTokens ?? 220;
-  let lastError = "Réponse vide de l'assistant.";
+  const maxTokens = input.maxTokens ?? 120;
 
-  for (let i = 0; i < chain.length; i++) {
-    const modelId = chain[i];
-    try {
-      const { text } = await runTrackedAIRequest(
-        {
-          route: i === 0 ? input.route : `${input.route}.model_fallback`,
-          userId,
-          isPro,
-          config: {
-            model: modelId,
-            apiKeys: input.config?.apiKeys ?? [],
-          },
+  try {
+    const { text } = await runTrackedAIRequest(
+      {
+        route: input.route,
+        userId,
+        isPro,
+        config: {
+          model: chain[0],
+          apiKeys: input.config?.apiKeys ?? [],
         },
-        (model) =>
-          generateText({
-            model,
-            system: sanitizedSystem.text,
-            messages: input.messages,
-            maxTokens,
-            maxRetries: 0,
-            temperature: 0.7,
-          })
-      );
+        fallbackChain: chain,
+      },
+      (model) =>
+        generateText({
+          model,
+          system: sanitizedSystem.text,
+          messages: input.messages,
+          maxTokens,
+          maxRetries: 0,
+          temperature: 0.55,
+        })
+    );
 
-      const reply = text?.trim();
-      if (reply) {
-        const cleanedReply = (input.cleanFn ?? cleanInterviewReply)(reply);
-        return { ok: true, reply: cleanedReply };
-      }
-    } catch (error) {
-      lastError =
-        error instanceof Error
-          ? error.message
-          : "Impossible de générer la réponse pour le moment.";
+    const reply = text?.trim();
+    if (reply) {
+      const cleanedReply = (input.cleanFn ?? cleanInterviewReply)(reply);
+      return { ok: true, reply: cleanedReply };
     }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Impossible de générer la réponse pour le moment.";
+    return { ok: false, error: message };
   }
 
-  return { ok: false, error: lastError };
+  return { ok: false, error: "Réponse vide de l'assistant." };
 }
 
 export async function getInterviewSetup(): Promise<InterviewSetupData> {
@@ -240,9 +238,11 @@ export async function startInterviewSimulation(input: {
   scenario: InterviewScenario;
   config?: AIConfig;
   demoMode?: boolean;
+  profileBrief?: string;
 }): Promise<InterviewActionResult> {
-  const { profile } = await getDashboardData();
-  const profileBrief = resolveSimulationBrief(profile, input.demoMode);
+  const profileBrief =
+    input.profileBrief?.trim() ||
+    resolveSimulationBrief((await getDashboardData()).profile, input.demoMode);
   const system = buildRecruiterSystemPrompt(profileBrief, input.scenario);
 
   return runInterviewAI({
@@ -251,12 +251,11 @@ export async function startInterviewSimulation(input: {
     messages: [
       {
         role: "user",
-        content:
-          "Commence l'entretien : présente-toi (ton prénom et ton rôle) en une phrase, salue-moi chaleureusement, puis pose-moi une première question d'ouverture en français. Sois naturelle et professionnelle.",
+        content: "Commence : présentation Sarra (1 phrase) + salut + 1 question d'ouverture. Max 35 mots.",
       },
     ],
     config: input.config,
-    maxTokens: 220,
+    maxTokens: 320,
   });
 }
 
@@ -265,58 +264,149 @@ export async function continueInterviewSimulation(input: {
   messages: InterviewMessage[];
   config?: AIConfig;
   demoMode?: boolean;
+  profileBrief?: string;
 }): Promise<InterviewActionResult> {
-  const { profile } = await getDashboardData();
+  const [{ userId }, profileBrief] = await Promise.all([
+    getPlanState(),
+    input.profileBrief?.trim()
+      ? Promise.resolve(input.profileBrief.trim())
+      : getDashboardData().then(({ profile }) =>
+          resolveSimulationBrief(profile, input.demoMode)
+        ),
+  ]);
 
   if (!input.messages.some((m) => m.role === "user")) {
     return { ok: false, error: "Aucune réponse candidat à traiter." };
   }
 
-  const profileBrief = resolveSimulationBrief(profile, input.demoMode);
   const system = buildRecruiterSystemPrompt(profileBrief, input.scenario);
 
   const trimmed = trimInterviewMessages(input.messages);
-  const coreMessages: CoreMessage[] = trimmed.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  const coreMessages: CoreMessage[] = trimmed.map((m) => {
+    if (m.role === "user") {
+      // Sanitize user-supplied text to block prompt injection
+      const sanitized = sanitizeForPrompt(m.content);
+      if (sanitized.detected || sanitized.wasTrimmed) {
+        logPromptInjectionAttempt({
+          userId,
+          route: "digimytch/interview-turn",
+          details: `user message sanitized: removed=${sanitized.removedFragments},trimmed=${sanitized.wasTrimmed}`,
+        }).catch(() => {});
+      }
+      return { role: m.role, content: sanitized.text };
+    }
+    return { role: m.role, content: m.content };
+  });
 
   return runInterviewAI({
     route: "digimytch/interview-turn",
     system,
     messages: coreMessages,
     config: input.config,
-    maxTokens: 220,
+    maxTokens: 320,
   });
 }
+
+const debriefSchema = z.object({
+  score: z
+    .number()
+    .min(0)
+    .max(10)
+    .describe("Score global du candidat sur 10"),
+  strengths: z
+    .array(z.string())
+    .min(1)
+    .max(4)
+    .describe("Points forts observés pendant l'entretien"),
+  improvements: z
+    .array(z.string())
+    .min(1)
+    .max(4)
+    .describe("Axes d'amélioration prioritaires"),
+  summary: z
+    .string()
+    .describe("Bilan global en 2-3 phrases, en français"),
+  recommendation: z
+    .enum(["recommandé", "neutre", "à améliorer"])
+    .describe("Recommandation finale du recruteur"),
+});
 
 export async function finishInterviewSimulation(input: {
   scenario: InterviewScenario;
   messages: InterviewMessage[];
   config?: AIConfig;
   demoMode?: boolean;
+  profileBrief?: string;
 }): Promise<InterviewActionResult> {
-  const { profile } = await getDashboardData();
-  const profileBrief = resolveSimulationBrief(profile, input.demoMode);
+  const { isPro, userId } = await getPlanState();
+  const profileBrief =
+    input.profileBrief?.trim() ||
+    resolveSimulationBrief((await getDashboardData()).profile, input.demoMode);
   const system = buildDebriefSystemPrompt(profileBrief, input.scenario);
+  const sanitizedSystem = sanitizeForPrompt(system);
 
   const transcript = input.messages
     .map((m) => `${m.role === "user" ? "Candidat" : "Recruteur"} : ${m.content}`)
     .join("\n\n");
 
-  return runInterviewAI({
-    route: "digimytch/interview-debrief",
-    system,
-    messages: [
+  const preferredModel =
+    input.config?.model ?? selectDigimytchModelForTask("interview");
+  const chain = getInterviewModelFallbackChain(preferredModel);
+
+  try {
+    const { object } = await runTrackedAIRequest(
       {
-        role: "user",
-        content: `Voici la transcription complète de la simulation :\n\n${transcript}\n\nProduis le bilan structuré en français uniquement.`,
+        route: "digimytch/interview-debrief",
+        userId,
+        isPro,
+        config: { model: chain[0], apiKeys: input.config?.apiKeys ?? [] },
+        fallbackChain: chain,
       },
-    ],
-    config: input.config,
-    maxTokens: 700,
-    cleanFn: cleanDebriefReply,
-  });
+      (model) =>
+        generateObject({
+          model,
+          schema: debriefSchema,
+          system: sanitizedSystem.text,
+          messages: [
+            {
+              role: "user",
+              content: `Transcription :\n\n${transcript}\n\nBilan structuré en français.`,
+            },
+          ],
+          maxTokens: 900,
+          maxRetries: 0,
+        })
+    );
+
+    const recommendationLabel =
+      object.recommendation === "recommandé"
+        ? "✅ Recommandé"
+        : object.recommendation === "neutre"
+          ? "⚠️ Neutre"
+          : "❌ À améliorer";
+
+    const reply = [
+      `## Bilan de l'entretien — Score : ${object.score}/10`,
+      "",
+      `**Recommandation :** ${recommendationLabel}`,
+      "",
+      object.summary,
+      "",
+      "### Points forts",
+      ...object.strengths.map((s) => `- ${s}`),
+      "",
+      "### Axes d'amélioration",
+      ...object.improvements.map((a) => `- ${a}`),
+    ].join("\n");
+
+    return { ok: true, reply };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Impossible de générer le bilan pour le moment.";
+    return { ok: false, error: message };
+  }
 }
 
 /** Charge une offre pour pré-remplir le scénario (optionnel). */
@@ -324,10 +414,14 @@ export async function getInterviewScenarioForJob(
   jobId: string
 ): Promise<InterviewScenario | null> {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const { data: job, error } = await supabase
     .from("jobs")
     .select("id, position_title, company_name")
     .eq("id", jobId)
+    .eq("user_id", user.id)
     .single();
 
   if (error || !job) return null;

@@ -55,7 +55,7 @@ export function ResumeEditorHeader({
         title: tResume("Changes saved", "Modifications enregistrées"),
         description: L.successSaved,
       });
-      promptNavigation("/resumes");
+      discardAndNavigate("/resumes");
     } catch (error) {
       toast({
         title: tResume("Save failed", "Échec de l'enregistrement"),

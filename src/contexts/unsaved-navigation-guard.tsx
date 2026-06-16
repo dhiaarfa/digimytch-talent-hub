@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { UnsavedChangesDialog } from "@/components/resume/editor/dialogs/unsaved-changes-dialog";
 
 export type NavigationTarget = string | "back";
@@ -53,50 +53,73 @@ function normalizeHref(href: string): string {
 
 export function UnsavedNavigationGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const registrationRef = useRef<UnsavedGuardRegistration | null>(null);
   const [isBlocking, setIsBlocking] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingTarget, setPendingTarget] = useState<NavigationTarget | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const historyTrapRef = useRef(false);
+  /** Prevents the editor from re-registering blocking while navigation is in flight. */
+  const navigatingAwayRef = useRef(false);
+
+  useEffect(() => {
+    navigatingAwayRef.current = false;
+  }, [pathname]);
 
   const register = useCallback((registration: UnsavedGuardRegistration | null) => {
+    if (navigatingAwayRef.current) {
+      registrationRef.current = null;
+      setIsBlocking(false);
+      return;
+    }
     registrationRef.current = registration;
     setIsBlocking(Boolean(registration?.isBlocking));
   }, []);
 
   const completeNavigation = useCallback(
     (target: NavigationTarget) => {
+      navigatingAwayRef.current = true;
+      registrationRef.current = null;
+      setIsBlocking(false);
       setDialogOpen(false);
       setPendingTarget(null);
+
       if (target === "back") {
+        const hadTrap = historyTrapRef.current;
         historyTrapRef.current = false;
-        router.back();
+        if (typeof window !== "undefined" && hadTrap) {
+          window.history.go(-2);
+        } else {
+          router.back();
+        }
         return;
       }
+      historyTrapRef.current = false;
       router.push(target);
     },
     [router]
   );
 
-  const promptNavigation = useCallback((target: NavigationTarget) => {
-    const reg = registrationRef.current;
-    if (!reg?.isBlocking) {
-      if (target === "back") {
-        router.back();
-      } else {
-        router.push(target);
+  const promptNavigation = useCallback(
+    (target: NavigationTarget) => {
+      const reg = registrationRef.current;
+      if (!reg?.isBlocking || navigatingAwayRef.current) {
+        if (target === "back") {
+          router.back();
+        } else {
+          router.push(target);
+        }
+        return;
       }
-      return;
-    }
-    setPendingTarget(target);
-    setDialogOpen(true);
-  }, [router]);
+      setPendingTarget(target);
+      setDialogOpen(true);
+    },
+    [router]
+  );
 
   const discardAndNavigate = useCallback(
     (target: NavigationTarget) => {
-      registrationRef.current = null;
-      setIsBlocking(false);
       completeNavigation(target);
     },
     [completeNavigation]
@@ -104,7 +127,7 @@ export function UnsavedNavigationGuardProvider({ children }: { children: ReactNo
 
   // Intercept in-app link clicks while blocking
   useEffect(() => {
-    if (!isBlocking) return;
+    if (!isBlocking || navigatingAwayRef.current) return;
 
     const onClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -130,7 +153,7 @@ export function UnsavedNavigationGuardProvider({ children }: { children: ReactNo
 
   // Browser back button
   useEffect(() => {
-    if (!isBlocking) {
+    if (!isBlocking || navigatingAwayRef.current) {
       historyTrapRef.current = false;
       return;
     }
@@ -141,7 +164,7 @@ export function UnsavedNavigationGuardProvider({ children }: { children: ReactNo
     }
 
     const onPopState = () => {
-      if (!registrationRef.current?.isBlocking) return;
+      if (!registrationRef.current?.isBlocking || navigatingAwayRef.current) return;
       history.pushState({ unsavedGuard: true }, "", window.location.href);
       promptNavigation("back");
     };
@@ -152,8 +175,6 @@ export function UnsavedNavigationGuardProvider({ children }: { children: ReactNo
 
   const handleConfirmLeave = useCallback(() => {
     if (pendingTarget) {
-      registrationRef.current = null;
-      setIsBlocking(false);
       completeNavigation(pendingTarget);
     }
   }, [pendingTarget, completeNavigation]);
@@ -165,8 +186,6 @@ export function UnsavedNavigationGuardProvider({ children }: { children: ReactNo
     try {
       const ok = await reg.save();
       if (ok) {
-        registrationRef.current = null;
-        setIsBlocking(false);
         completeNavigation(pendingTarget);
       }
     } finally {
@@ -181,7 +200,10 @@ export function UnsavedNavigationGuardProvider({ children }: { children: ReactNo
       {children}
       <UnsavedChangesDialog
         isOpen={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setPendingTarget(null);
+        }}
         onConfirm={handleConfirmLeave}
         onSave={handleSaveAndLeave}
         isSaving={isSaving}

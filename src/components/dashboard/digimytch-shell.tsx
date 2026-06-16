@@ -118,7 +118,7 @@ function NavLink({
         "flex items-center gap-2 rounded-lg transition-colors",
         mobile
           ? "flex-col justify-center flex-1 shrink-0 px-1 py-2.5 text-[10px] font-medium"
-          : "px-3 py-2.5 text-sm font-medium min-h-[2.75rem]",
+          : "px-3 py-3 text-sm font-medium min-h-[3rem]",
         active
           ? mobile
             ? "text-[var(--digi-accent)]"
@@ -158,7 +158,7 @@ function SidebarFooterLink({
       }}
       className={cn(
         "flex items-center gap-2.5 rounded-lg transition-colors w-full",
-        "px-3 py-3 min-h-[2.875rem] text-sm font-medium",
+        "px-3 py-2 min-h-[2.5rem] text-sm font-medium",
         active
           ? "bg-gradient-to-r from-[var(--color-primary-blue)] to-[var(--color-accent-magenta)] text-white shadow-sm"
           : "text-[var(--digi-muted)] hover:bg-white/80 hover:text-[var(--digi-navy)] dark:hover:bg-[var(--digi-card)]"
@@ -174,7 +174,7 @@ function SidebarFooterLogout({ label }: { label: string }) {
   return (
     <LogoutButton
       className={cn(
-        "w-full justify-start gap-2.5 rounded-lg px-3 py-3 min-h-[2.875rem]",
+        "w-full justify-start gap-2.5 rounded-lg px-3 py-2 min-h-[2.5rem]",
         "h-auto text-sm font-medium text-[var(--digi-muted)]",
         "hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30 dark:hover:text-red-400",
         "border-0 shadow-none bg-transparent"
@@ -371,8 +371,8 @@ export function DigimytchShell({
   return (
     <UnsavedNavigationGuardProvider>
     <div className="flex min-h-screen bg-[var(--digi-surface)]">
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[240px] flex-col border-r border-[var(--digi-border)] bg-white/95 dark:bg-[var(--digi-card)]/95 backdrop-blur-md">
-        <div className="px-4 py-4 border-b border-[var(--digi-border)]">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[260px] flex-col border-r border-[var(--digi-border)] bg-white/95 dark:bg-[var(--digi-card)]/95 backdrop-blur-md">
+        <div className="px-4 py-3 border-b border-[var(--digi-border)]">
           <div className="flex items-center justify-between gap-2">
             <Link href={homeHref} className="flex items-center gap-2 min-w-0">
               <AppImage
@@ -393,7 +393,7 @@ export function DigimytchShell({
             <NotificationBell />
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Menu principal">
+        <nav className="flex-1 px-3 py-2 space-y-0 overflow-y-auto" aria-label="Menu principal">
           {navItems.map((item) => (
             <NavLink key={item.href} {...item} />
           ))}
@@ -455,7 +455,7 @@ export function DigimytchShell({
         <NotificationBell align="end" />
       </div>
 
-      <div className="flex-1 flex flex-col md:pl-[240px] pb-20 md:pb-0 min-w-0">
+      <div className="flex-1 flex flex-col md:pl-[260px] pb-20 md:pb-0 min-w-0">
         <main className="flex-1">{children}</main>
       </div>
 

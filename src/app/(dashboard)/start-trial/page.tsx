@@ -22,12 +22,12 @@ import { Logo } from '@/components/ui/logo';
 import { LogoutButton } from '@/components/auth/logout-button';
 
 const features = [
-  "Unlimited base resumes",
-  "Unlimited AI-tailored resumes",
-  "Advanced AI assistance with multiple models",
-  "Premium ATS-optimized templates",
-  "Cover letter generation",
-  "Priority customer support"
+  "CV de base illimités",
+  "CV personnalisés par offre illimités (IA)",
+  "Assistant IA multi-modèles avancé",
+  "Templates optimisés ATS premium",
+  "Génération de lettre de motivation",
+  "Support prioritaire"
 ];
 
 export default function StartTrialPage() {
@@ -67,14 +67,14 @@ export default function StartTrialPage() {
           <div className="flex items-center justify-center gap-2 mb-4">
             <Sparkles className="h-6 w-6 text-purple-500" />
             <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0 px-3 py-1">
-              7-Day Free Trial
+              Essai gratuit 7 jours
             </Badge>
             <Sparkles className="h-6 w-6 text-purple-500" />
           </div>
           
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Start Building Your
-            <span className="bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent"> Perfect Resume</span>
+            Commencez à construire votre
+            <span className="bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent"> CV parfait</span>
           </h1>
           
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -94,7 +94,7 @@ export default function StartTrialPage() {
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100 p-6 shadow-lg">
               <div className="flex items-center gap-2 mb-4">
                 <Crown className="h-5 w-5 text-purple-500" />
-                <h2 className="text-lg font-semibold text-gray-900">What you get with Pro</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Ce que vous obtenez avec Pro</h2>
               </div>
               
               <div className="space-y-3">
@@ -117,8 +117,8 @@ export default function StartTrialPage() {
                     <Users className="h-4 w-4 text-purple-700" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">1,800+ users</p>
-                    <p className="text-xs text-gray-600">Growing every week</p>
+                    <p className="text-sm font-medium text-gray-900">1 800+ utilisateurs</p>
+                    <p className="text-xs text-gray-600">En croissance chaque semaine</p>
                   </div>
                 </div>
               </div>
@@ -128,8 +128,8 @@ export default function StartTrialPage() {
                     <Brain className="h-4 w-4 text-indigo-700" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Latest AI models</p>
-                    <p className="text-xs text-gray-600">Multiple providers & fallbacks</p>
+                    <p className="text-sm font-medium text-gray-900">Derniers modèles IA</p>
+                    <p className="text-xs text-gray-600">Plusieurs fournisseurs & fallbacks</p>
                   </div>
                 </div>
               </div>
@@ -149,18 +149,18 @@ export default function StartTrialPage() {
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 bg-purple-50 rounded-full px-4 py-2 mb-4">
                   <Clock className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-700">7-day free trial</span>
+                  <span className="text-sm font-medium text-purple-700">Essai gratuit 7 jours</span>
                 </div>
                 
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Digimytch Pro</h3>
                 
                 <div className="flex items-baseline justify-center gap-1 mb-2">
                   <span className="text-4xl font-bold text-gray-900">$0</span>
-                  <span className="text-gray-500">for 7 days</span>
+                  <span className="text-gray-500">pendant 7 jours</span>
                 </div>
                 
                 <p className="text-sm text-gray-500">
-                  Then $20/month • Cancel anytime
+                  Puis 20$/mois • Annulez à tout moment
                 </p>
               </div>
 
@@ -169,24 +169,24 @@ export default function StartTrialPage() {
                 <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
                   <Zap className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-green-800">Instant Pro Access</p>
-                    <p className="text-xs text-green-600">Start building AI-powered resumes immediately</p>
+                    <p className="text-sm font-medium text-green-800">Accès Pro immédiat</p>
+                    <p className="text-xs text-green-600">Commencez à créer vos CV IA immédiatement</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <CreditCard className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-blue-800">Card Required</p>
-                    <p className="text-xs text-blue-600">For seamless continuation if you love it</p>
+                    <p className="text-sm font-medium text-blue-800">Carte bancaire requise</p>
+                    <p className="text-xs text-blue-600">Pour une continuation fluide si vous adorez</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
                   <Shield className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-purple-800">Cancel Anytime</p>
-                    <p className="text-xs text-purple-600">No charge if you cancel before trial ends</p>
+                    <p className="text-sm font-medium text-purple-800">Annulez à tout moment</p>
+                    <p className="text-xs text-purple-600">Aucun frais si vous annulez avant la fin de l&apos;essai</p>
                   </div>
                 </div>
               </div>
@@ -204,18 +204,18 @@ export default function StartTrialPage() {
                 {isLoading ? (
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Loading...</span>
+                    <span>Chargement...</span>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
-                    <span>Start Free Trial</span>
+                    <span>Commencer l&apos;essai gratuit</span>
                     <ArrowRight className="h-5 w-5" />
                   </div>
                 )}
               </Button>
 
               <p className="text-center text-xs text-gray-500 mt-4">
-                By starting your trial, you agree to our Terms of Service
+                En démarrant votre essai, vous acceptez nos Conditions d&apos;utilisation
               </p>
             </div>
           </motion.div>

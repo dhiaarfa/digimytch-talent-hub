@@ -6,8 +6,15 @@ export function scoreCvCopy(lang: DigiLang) {
     tabImport: en ? "Bring my CV" : "Apporter mon CV",
     tabExisting: en ? "My platform CV" : "Mon CV sur la plateforme",
     importHint: en
-      ? "Paste your CV text (Word, PDF export, LinkedIn…). Nothing is saved until you create a resume in CV & letters."
-      : "Collez le texte de votre CV (export Word/PDF, LinkedIn…). Rien n'est enregistré tant que vous ne créez pas un CV dans CV & lettres.",
+      ? "Upload a PDF/Word file or paste your CV text. Nothing is saved until you create a resume in CV & letters."
+      : "Importez un PDF/Word ou collez le texte de votre CV. Rien n'est enregistré tant que vous ne créez pas un CV dans CV & lettres.",
+    uploadLabel: en ? "Import a file" : "Importer un fichier",
+    uploadDrop: en ? "Drop your CV here or click to browse" : "Glissez votre CV ici ou cliquez pour parcourir",
+    uploadFormats: en ? "PDF, Word (.docx) or image (OCR)" : "PDF, Word (.docx) ou image (OCR)",
+    uploadReady: en ? "characters ready for analysis" : "caractères prêts pour l'analyse",
+    cvEmpty: en
+      ? "Add a file or paste at least 80 characters of your CV."
+      : "Ajoutez un fichier ou collez au moins 80 caractères de votre CV.",
     cvLabel: en ? "CV text *" : "Texte du CV *",
     cvPlaceholder: en
       ? "Paste your full resume here…"

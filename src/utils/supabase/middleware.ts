@@ -158,6 +158,11 @@ async function updateSessionInner(request: NextRequest): Promise<NextResponse> {
       supabaseResponse.headers.set('x-supabase-status', 'unavailable')
       return supabaseResponse
     }
+    // API routes must never receive an HTML redirect — return JSON 401 so
+    // non-browser clients (CLI, extensions, fetch()) get a proper error shape.
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

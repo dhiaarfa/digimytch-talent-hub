@@ -4,6 +4,7 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 116%; /* ~18.5px — lisibilité soutenance à distance */
 }
 
 /* ── View Transitions API — smoother page navigation ─────────────────────── */

@@ -4,6 +4,7 @@ import type { Job, Resume, ServiceName } from "@/lib/types";
 import type { AIConfig } from "@/lib/ai-models";
 import { computeResumeScore } from "@/lib/resume-score-service";
 import { stripJobForScoring, stripResumeForScoring } from "@/lib/resume-score-payload";
+import { checkRateLimit, RateLimitError } from "@/lib/rateLimiter";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -28,6 +29,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
+    try {
+      await checkRateLimit(user.id, "resume-score");
+    } catch (e) {
+      if (e instanceof RateLimitError) {
+        return NextResponse.json(
+          { error: "Trop de requêtes. Veuillez patienter quelques secondes." },
+          { status: 429 }
+        );
+      }
+    }
+
     let body: ScoreRequestBody;
     try {
       body = (await request.json()) as ScoreRequestBody;
@@ -37,6 +49,11 @@ export async function POST(request: Request) {
 
     if (!body.resume?.id && !body.resume?.user_id) {
       return NextResponse.json({ error: "CV manquant" }, { status: 400 });
+    }
+
+    // IDOR guard: reject resumes that belong to another user
+    if (body.resume.user_id && body.resume.user_id !== user.id) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
     const resume = stripResumeForScoring(body.resume);

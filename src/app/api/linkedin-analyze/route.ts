@@ -5,6 +5,7 @@ import { AIUsageError } from "@/lib/ai/usage-ledger";
 import { friendlyAIErrorMessage } from "@/lib/ai/plan";
 import { analyzeLinkedInScreenshot } from "@/lib/linkedin-analyze";
 import { isOpenRouterRateLimitError } from "@/lib/digimytch-openrouter-models";
+import { createClient } from "@/utils/supabase/server";
 import { z } from "zod";
 
 const bodySchema = z.object({
@@ -21,6 +22,12 @@ const RATE_LIMIT_MESSAGE_EN =
   "Free AI models are rate-limited. Try again in 1–2 minutes, or use a smaller screenshot (JPG).";
 
 export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return Response.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
   let body: z.infer<typeof bodySchema>;
   try {
     const raw = await req.json();
@@ -37,7 +44,7 @@ export async function POST(req: Request) {
   try {
     const { plan, id } = await getSubscriptionPlan(true);
     const isPro = IS_DIGIMYTCH_TALENT_HUB || plan === "pro";
-    const userId = id ?? "guest-linkedin";
+    const userId = id || user.id;
 
     const result = await analyzeLinkedInScreenshot({
       userId,

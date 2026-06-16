@@ -7,16 +7,15 @@ import {
 } from "@/components/interview/interview-engine-reducer";
 
 describe("interviewEngineReducer", () => {
-  it("boot → assistant → speak → listen", () => {
+  it("assistant reply opens listening immediately (fast path)", () => {
     let s = initialInterviewEngineState;
     s = interviewEngineReducer(s, {
       type: "ASSISTANT_REPLY",
       content: "Bonjour, parlez-moi de vous.",
     });
-    assert.equal(s.phase, "speaking");
-    assert.equal(s.messages.length, 1);
-    s = interviewEngineReducer(s, { type: "SPEAK_DONE" });
     assert.equal(s.phase, "listening");
+    assert.equal(s.messages.length, 1);
+    assert.equal(s.liveTranscript, "");
   });
 
   it("submits user answer then processes", () => {
@@ -39,14 +38,11 @@ describe("interviewEngineReducer", () => {
     assert.equal(s.pendingAnswer, "");
   });
 
-  it("cycles speaking → listening across multiple turns", () => {
+  it("cycles listening across multiple turns without blocking speak phase", () => {
     let s = interviewEngineReducer(initialInterviewEngineState, {
       type: "ASSISTANT_REPLY",
       content: "Question 1",
     });
-    assert.equal(s.phase, "speaking");
-
-    s = interviewEngineReducer(s, { type: "SPEAK_DONE" });
     assert.equal(s.phase, "listening");
 
     s = interviewEngineReducer(s, { type: "SUBMIT_ANSWER", answer: "Answer 1" });
@@ -57,11 +53,8 @@ describe("interviewEngineReducer", () => {
       type: "ASSISTANT_REPLY",
       content: "Question 2",
     });
-    assert.equal(s.phase, "speaking");
-    assert.equal(s.messages.length, 3);
-
-    s = interviewEngineReducer(s, { type: "SPEAK_DONE" });
     assert.equal(s.phase, "listening");
+    assert.equal(s.messages.length, 3);
     assert.equal(s.liveTranscript, "");
     assert.equal(s.userTurns, 1);
   });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenRouterApiKey, OPENROUTER_KEY_SETUP_HINT } from "@/lib/openrouter-config";
+import { checkRateLimit, RateLimitError } from "@/lib/rateLimiter";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -16,6 +17,19 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
+  // Rate limit: sliding window per user scope
+  try {
+    await checkRateLimit(user.id, "speech-transcribe");
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return NextResponse.json(
+        { error: "Trop de requêtes. Veuillez patienter quelques secondes.", fallbackToBrowser: true },
+        { status: 429 }
+      );
+    }
+    // Backend error in dev/CI — allow through; in prod it will throw
   }
 
   const apiKey = getOpenRouterApiKey();

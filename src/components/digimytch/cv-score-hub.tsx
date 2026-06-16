@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { FileText, Upload, Loader2, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,13 @@ import {
 import { useLanguage } from "@/lib/use-language";
 import { scoreCvCopy } from "@/lib/score-cv-i18n";
 import { EXAMPLE_JOB_POSTING_EN, EXAMPLE_JOB_POSTING_FR } from "@/lib/score-cv-examples";
+import {
+  CV_ACCEPT_EXTENSIONS,
+  cvExtractingLabel,
+  detectCvFileType,
+  extractTextFromCvFile,
+} from "@/lib/cv-file-extract";
+import { cn } from "@/lib/utils";
 
 type CvScoreHubProps = {
   baseResumes: ResumeSummary[];
@@ -50,6 +57,84 @@ export function CvScoreHub({ baseResumes }: CvScoreHubProps) {
     storageKey: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractingLabel, setExtractingLabel] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastFileName, setLastFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFile = useCallback(
+    async (file: File) => {
+      const category = detectCvFileType(file);
+      if (category === "unknown") {
+        toast.error(
+          lang === "en" ? "Unsupported format" : "Format non supporté",
+          {
+            description:
+              lang === "en"
+                ? "Use PDF, Word (.docx) or an image."
+                : "Utilisez PDF, Word (.docx) ou une image.",
+          }
+        );
+        return;
+      }
+
+      setIsExtracting(true);
+      setExtractingLabel(cvExtractingLabel(category));
+      setLastFileName(file.name);
+
+      try {
+        const { text } = await extractTextFromCvFile(file);
+        if (!text.trim()) {
+          toast.error(
+            lang === "en" ? "No text detected" : "Aucun texte détecté",
+            {
+              description:
+                lang === "en"
+                  ? "Check that the file contains readable text."
+                  : "Vérifiez que le fichier contient du texte lisible.",
+            }
+          );
+          setLastFileName(null);
+          return;
+        }
+        setCvText(text);
+        toast.success(lang === "en" ? "File loaded" : "Fichier chargé", {
+          description: `${file.name} — ${text.length} ${t.uploadReady}.`,
+        });
+      } catch (err) {
+        toast.error(lang === "en" ? "Extraction failed" : "Erreur d'extraction", {
+          description:
+            err instanceof Error ? err.message : lang === "en" ? "Could not read this file." : "Impossible de lire ce fichier.",
+        });
+        setLastFileName(null);
+      } finally {
+        setIsExtracting(false);
+        setExtractingLabel("");
+      }
+    },
+    [lang, t.uploadReady]
+  );
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = Array.from(e.dataTransfer.files)[0];
+    if (file) await processFile(file);
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) await processFile(file);
+    e.target.value = "";
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(e.type === "dragenter" || e.type === "dragover");
+  };
 
   const runAnalysis = useCallback(() => {
     startTransition(async () => {
@@ -62,6 +147,10 @@ export function CvScoreHub({ baseResumes }: CvScoreHubProps) {
           }
           next = await loadResumeScoringBundle(selectedResumeId);
         } else {
+          if (!cvText.trim()) {
+            toast.error(t.cvEmpty);
+            return;
+          }
           next = await loadImportedCvScoringBundle({
             cvText,
             targetRole: targetRole || undefined,
@@ -99,6 +188,55 @@ export function CvScoreHub({ baseResumes }: CvScoreHubProps) {
         <TabsContent value="import" className="mt-6 space-y-4">
           <div className="rounded-xl border border-[var(--digi-border)] bg-white p-4 sm:p-6 space-y-4">
             <p className="text-sm text-[var(--digi-muted)]">{t.importHint}</p>
+            <div className="space-y-2">
+              <Label>{t.uploadLabel}</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="sr-only"
+                accept={CV_ACCEPT_EXTENSIONS}
+                onChange={(e) => void handleFileInput(e)}
+              />
+              <div
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+                }}
+                onClick={() => !isExtracting && fileInputRef.current?.click()}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={(e) => void handleDrop(e)}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-colors cursor-pointer",
+                  isDragging
+                    ? "border-[var(--digi-accent)] bg-[var(--digi-accent)]/5"
+                    : "border-[var(--digi-border)] hover:border-[var(--digi-accent)]/50",
+                  isExtracting && "pointer-events-none opacity-80"
+                )}
+              >
+                {isExtracting ? (
+                  <>
+                    <Loader2 className="h-8 w-8 text-[var(--digi-accent)] animate-spin" aria-hidden />
+                    <p className="text-sm font-medium text-[var(--digi-navy)]">{extractingLabel}</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-[var(--digi-muted)]" aria-hidden />
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-[var(--digi-dark)]">{t.uploadDrop}</p>
+                      <p className="text-xs text-[var(--digi-muted)] mt-0.5">{t.uploadFormats}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+              {lastFileName && cvText.trim() ? (
+                <p className="text-xs text-emerald-700 font-medium">
+                  {lastFileName} — {cvText.trim().length} {t.uploadReady}
+                </p>
+              ) : null}
+            </div>
             <div className="space-y-2">
               <Label htmlFor="cv-text">{t.cvLabel}</Label>
               <Textarea

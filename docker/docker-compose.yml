@@ -10,7 +10,7 @@ services:
   # PostgreSQL Database
   db:
     image: supabase/postgres:15.14.1.066
-    container_name: resumelm-db
+    container_name: digimytch-db
     healthcheck:
       test: pg_isready -U supabase_admin -h localhost
       interval: 5s
@@ -47,12 +47,12 @@ services:
       - db-data:/var/lib/postgresql/data
       - ./supabase/volumes/db/init:/docker-entrypoint-initdb.d:ro
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Supabase Studio (Dashboard) - Dev only, skip in production
   studio:
     image: supabase/studio:2025.12.17-sha-43f4f7f
-    container_name: resumelm-studio
+    container_name: digimytch-studio
     restart: unless-stopped
     deploy:
       resources:
@@ -88,12 +88,12 @@ services:
     ports:
       - "54323:3000"
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Kong API Gateway
   kong:
     image: kong:2.8.1
-    container_name: resumelm-kong
+    container_name: digimytch-kong
     restart: unless-stopped
     deploy:
       resources:
@@ -129,12 +129,12 @@ services:
       timeout: 10s
       retries: 5
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # GoTrue Auth Service
   auth:
     image: supabase/gotrue:v2.184.0
-    container_name: resumelm-auth
+    container_name: digimytch-auth
     deploy:
       resources:
         limits:
@@ -184,12 +184,12 @@ services:
       GOTRUE_SMS_AUTOCONFIRM: true
       GOTRUE_RATE_LIMIT_HEADER: X-Forwarded-For
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # PostgREST API
   rest:
     image: postgrest/postgrest:v14.1
-    container_name: resumelm-rest
+    container_name: digimytch-rest
     deploy:
       resources:
         limits:
@@ -212,12 +212,12 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: 3600
     command: "postgrest"
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Realtime Server
   realtime:
     image: supabase/realtime:v2.68.0
-    container_name: resumelm-realtime
+    container_name: digimytch-realtime
     deploy:
       resources:
         limits:
@@ -260,12 +260,12 @@ services:
     command: >
       sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Storage API
   storage:
     image: supabase/storage-api:v1.48.26
-    container_name: resumelm-storage
+    container_name: digimytch-storage
     deploy:
       resources:
         limits:
@@ -305,12 +305,12 @@ services:
     volumes:
       - storage-data:/var/lib/storage
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Image Proxy for Storage
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
-    container_name: resumelm-imgproxy
+    container_name: digimytch-imgproxy
     deploy:
       resources:
         limits:
@@ -332,12 +332,12 @@ services:
     volumes:
       - storage-data:/var/lib/storage:ro
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Meta service for Studio
   meta:
     image: supabase/postgres-meta:v0.95.1
-    container_name: resumelm-meta
+    container_name: digimytch-meta
     deploy:
       resources:
         limits:
@@ -358,12 +358,12 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres-dev-password}
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Inbucket (local email testing) - Dev only, skip in production
   inbucket:
     image: inbucket/inbucket:3.1.1
-    container_name: resumelm-inbucket
+    container_name: digimytch-inbucket
     deploy:
       resources:
         limits:
@@ -377,12 +377,12 @@ services:
       - "54324:9000"   # Web UI
       - "54325:2500"   # SMTP
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Analytics (Logflare for logging) - Optional, can skip in production
   analytics:
     image: supabase/logflare:1.27.0
-    container_name: resumelm-analytics
+    container_name: digimytch-analytics
     deploy:
       resources:
         limits:
@@ -415,14 +415,14 @@ services:
       POSTGRES_BACKEND_SCHEMA: _analytics
       LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # ============================================
   # Redis for Rate Limiting & Caching
   # ============================================
   redis:
     image: redis:7-alpine
-    container_name: resumelm-redis
+    container_name: digimytch-redis
     restart: unless-stopped
     deploy:
       resources:
@@ -443,12 +443,12 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # Redis Commander (optional web UI for Redis) - Dev only, skip in production
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: resumelm-redis-commander
+    container_name: digimytch-redis-commander
     restart: unless-stopped
     deploy:
       resources:
@@ -472,7 +472,7 @@ services:
     ports:
       - "8081:8081"
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # ============================================
   # Next.js Application
@@ -485,7 +485,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: production
-    container_name: resumelm-app
+    container_name: digimytch-app
     restart: unless-stopped
     deploy:
       resources:
@@ -528,14 +528,14 @@ services:
       # Dev convenience (configurable with defaults)
       - AUTO_PRO_SUBSCRIPTION=${AUTO_PRO_SUBSCRIPTION:-true}
     networks:
-      - resumelm-network
+      - digimytch-network
 
   # ============================================
   # Database Seeder (runs once on startup)
   # ============================================
   seeder:
     image: curlimages/curl:latest
-    container_name: resumelm-seeder
+    container_name: digimytch-seeder
     depends_on:
       auth:
         condition: service_healthy
@@ -553,7 +553,7 @@ services:
       - AUTO_PRO_SUBSCRIPTION=${AUTO_PRO_SUBSCRIPTION:-true}
     entrypoint: ["/bin/sh", "/seed-admin.sh"]
     networks:
-      - resumelm-network
+      - digimytch-network
     restart: "no"
 
 volumes:
@@ -562,5 +562,5 @@ volumes:
   redis-data:
 
 networks:
-  resumelm-network:
+  digimytch-network:
     driver: bridge

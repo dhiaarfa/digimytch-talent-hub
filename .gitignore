@@ -72,6 +72,22 @@ push_fix.bat
 START.bat
 ANALYSE_TECHNIQUE_COMPLETE.md
 CURSOR_TASKS.md
+AUDIT_PLATFORME.md
+CONTEXTE-PFE.md
+tests.md
+
+# Presentation assets (PFE local only)
+slide-*.jpg
+*.pptx
+
+# Local utility scripts (never deploy)
+scripts/copy-to-c-drive.ps1
+scripts/delete-e-project.ps1
+scripts/commit-fixes.ps1
+start-dev.ps1
+
+# Phantom / temp files
+src/app/api/openrouter/capabilities/sedlmcVgd
 
 # OS / IDE
 Thumbs.db

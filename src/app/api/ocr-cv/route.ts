@@ -3,6 +3,7 @@ import { getSubscriptionPlan } from "@/utils/actions/stripe/actions";
 import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
 import { AIUsageError } from "@/lib/ai/usage-ledger";
 import { extractCvTextFromImage } from "@/lib/ocr-cv-from-image";
+import { createClient } from "@/utils/supabase/server";
 import { z } from "zod";
 
 const bodySchema = z.object({
@@ -11,6 +12,12 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return Response.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
   let body: z.infer<typeof bodySchema>;
   try {
     const raw = await req.json();
@@ -26,7 +33,7 @@ export async function POST(req: Request) {
   try {
     const { plan, id } = await getSubscriptionPlan(true);
     const isPro = IS_DIGIMYTCH_TALENT_HUB || plan === "pro";
-    const userId = id ?? "guest-ocr";
+    const userId = id || user.id;
 
     const text = await extractCvTextFromImage({
       base64: body.base64,

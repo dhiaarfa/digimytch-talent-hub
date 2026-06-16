@@ -140,6 +140,7 @@ export interface InterviewEngineProps {
   lang: "fr" | "en";
   userDisplayName: string;
   userAvatarUrl: string | null;
+  profileBrief: string;
   demoMode?: boolean;
   onReset: () => void;
 }
@@ -151,6 +152,7 @@ export function InterviewEngine({
   lang,
   userDisplayName,
   userAvatarUrl,
+  profileBrief,
   demoMode = false,
   onReset,
 }: InterviewEngineProps) {
@@ -161,6 +163,7 @@ export function InterviewEngine({
   const [state, dispatch] = useReducer(interviewEngineReducer, initialInterviewEngineState);
   const [textFallback, setTextFallback] = useState("");
   const [micDenied, setMicDenied] = useState(false);
+  const [isRecruiterSpeaking, setIsRecruiterSpeaking] = useState(false);
 
   const stateRef = useRef(state);
   const voiceEnabledRef = useRef(voiceEnabled);
@@ -247,6 +250,7 @@ export function InterviewEngine({
     if (!answer || stateRef.current.phase !== "listening") return;
     stopRecognition();
     cancelSpeech();
+    setIsRecruiterSpeaking(false);
     dispatch({ type: "SUBMIT_ANSWER", answer });
     setTextFallback("");
   };
@@ -257,11 +261,11 @@ export function InterviewEngine({
     try {
       // Run mic permission and AI call in parallel — mic dialog must not block AI load
       const micTimeout = new Promise<{ ok: boolean }>((resolve) =>
-        setTimeout(() => resolve({ ok: true }), 5000)
+        setTimeout(() => resolve({ ok: true }), 2500)
       );
       const [micResult, aiResult] = await Promise.allSettled([
         Promise.race([requestMicrophoneAccess(), micTimeout]),
-        startInterviewSimulation({ scenario, config: aiConfig, demoMode }),
+        startInterviewSimulation({ scenario, config: aiConfig, demoMode, profileBrief }),
       ]);
 
       if (micResult.status === "fulfilled" && !micResult.value.ok) setMicDenied(true);
@@ -289,7 +293,7 @@ export function InterviewEngine({
     } finally {
       inFlightRef.current = false;
     }
-  }, [aiConfig, scenario, demoMode, friendlyError]);
+  }, [aiConfig, scenario, demoMode, profileBrief, friendlyError]);
 
   useEffect(() => {
     if (bootedRef.current) return;
@@ -299,35 +303,37 @@ export function InterviewEngine({
     void runBoot();
   }, [runBoot]);
 
+  // TTS in parallel — mic opens immediately (listening phase), no wait for speech end
   useEffect(() => {
-    if (state.phase !== "speaking" || !state.currentQuestion) return;
-
+    if (!state.currentQuestion || state.phase === "booting" || state.phase === "processing") {
+      return;
+    }
     if (!voiceEnabledRef.current) {
-      dispatch({ type: "SPEAK_DONE" });
+      setIsRecruiterSpeaking(false);
       return;
     }
 
     cancelSpeech();
+    setIsRecruiterSpeaking(true);
     let safetyTimer: ReturnType<typeof setTimeout> | null = null;
 
     speakText(state.currentQuestion, {
-      rate: 1.1,    // 1.1 = natural cadence, clearly intelligible
+      rate: 1.28,
       pitch: 1.0,
       lang: speechLang,
       onEnd: () => {
         if (safetyTimer) clearTimeout(safetyTimer);
-        dispatch({ type: "SPEAK_DONE" });
+        setIsRecruiterSpeaking(false);
       },
     });
 
-    // 30 s fallback — Chrome sometimes never fires onend; generous window for long responses
-    safetyTimer = setTimeout(() => dispatch({ type: "SPEAK_DONE" }), 30_000);
+    safetyTimer = setTimeout(() => setIsRecruiterSpeaking(false), 25_000);
 
     return () => {
       cancelSpeech();
       if (safetyTimer) clearTimeout(safetyTimer);
     };
-  }, [state.phase, state.currentQuestion, speechLang]);
+  }, [state.currentQuestion, state.messages.length, state.phase, speechLang]);
 
   useEffect(() => {
     if (state.phase !== "listening") {
@@ -356,6 +362,7 @@ export function InterviewEngine({
             messages: state.messages,
             config: aiConfig,
             demoMode,
+            profileBrief,
           });
           if (!result.ok) {
             const msg = friendlyError(result.error);
@@ -376,6 +383,7 @@ export function InterviewEngine({
           messages: state.messages,
           config: aiConfig,
           demoMode,
+          profileBrief,
         });
         if (!result.ok) {
           const msg = friendlyError(result.error);
@@ -407,13 +415,14 @@ export function InterviewEngine({
     scenario,
     aiConfig,
     demoMode,
+    profileBrief,
     isEn,
     friendlyError,
   ]);
 
   const handleSkipSpeech = () => {
     cancelSpeech();
-    dispatch({ type: "SPEAK_DONE" });
+    setIsRecruiterSpeaking(false);
   };
 
   const finishInterview = () => {
@@ -430,10 +439,15 @@ export function InterviewEngine({
     dispatch({ type: "REQUEST_FINISH" });
   };
 
-  const phaseLabel = PHASE_LABELS[state.phase]?.[isEn ? "en" : "fr"] ?? state.phase;
+  const phaseLabel =
+    state.phase === "listening" && isRecruiterSpeaking
+      ? isEn
+        ? "Recruiter speaking — you can answer"
+        : "Sarra parle — vous pouvez répondre"
+      : PHASE_LABELS[state.phase]?.[isEn ? "en" : "fr"] ?? state.phase;
   const inputValue =
     state.phase === "listening" ? state.liveTranscript || textFallback : textFallback;
-  const inputDisabled = state.phase === "processing" || state.phase === "speaking";
+  const inputDisabled = state.phase === "processing";
 
   if (state.phase === "error") {
     return (
@@ -455,14 +469,14 @@ export function InterviewEngine({
             "text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5",
             state.phase === "listening" && "bg-red-100 text-red-800",
             state.phase === "processing" && "bg-amber-100 text-amber-900",
-            state.phase === "speaking" && "bg-blue-100 text-blue-900",
+            isRecruiterSpeaking && state.phase === "listening" && "bg-blue-100 text-blue-900",
             state.phase === "booting" && "bg-gray-100 text-gray-700",
             state.phase === "complete" && "bg-green-100 text-green-800"
           )}
           aria-live="polite"
         >
-          {state.phase === "listening" && <Mic className="h-3 w-3" aria-hidden />}
-          {state.phase === "speaking" && <Volume2 className="h-3 w-3" aria-hidden />}
+          {state.phase === "listening" && !isRecruiterSpeaking && <Mic className="h-3 w-3" aria-hidden />}
+          {isRecruiterSpeaking && <Volume2 className="h-3 w-3" aria-hidden />}
           {state.phase === "processing" && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
           {phaseLabel}
         </span>
@@ -484,7 +498,7 @@ export function InterviewEngine({
             userAvatarUrl={userAvatarUrl}
             userDisplayName={userDisplayName}
             highlight={
-              state.phase === "speaking" &&
+              isRecruiterSpeaking &&
               msg.role === "assistant" &&
               i === state.messages.length - 1
             }
@@ -518,7 +532,7 @@ export function InterviewEngine({
           </div>
         )}
 
-        {state.phase === "speaking" && (
+        {isRecruiterSpeaking && state.phase === "listening" && (
           <Button type="button" size="sm" variant="ghost" onClick={handleSkipSpeech}>
             {isEn ? "Skip voice" : "Passer la voix"}
           </Button>
@@ -553,7 +567,7 @@ export function InterviewEngine({
       {state.phase !== "complete" && (
         <div className="border-t bg-white">
           {/* Speaking phase — show what the recruiter is saying */}
-          {state.phase === "speaking" && state.currentQuestion && (
+          {isRecruiterSpeaking && state.currentQuestion && (
             <div className="px-4 pt-3 pb-1">
               <p className="text-sm text-[var(--digi-navy)] bg-blue-50/80 rounded-lg px-3 py-2 border border-blue-100">
                 <Volume2 className="inline h-4 w-4 mr-1 text-[#030A8C]" aria-hidden />
@@ -601,7 +615,7 @@ export function InterviewEngine({
                     {isEn ? "Listening… speak now" : "Micro ouvert — parlez maintenant"}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {isEn ? "Auto-submits after 3s silence" : "Envoi automatique après 3s de silence"}
+                    {isEn ? "Auto-submits after 2s silence" : "Envoi automatique après 2s de silence"}
                   </p>
                 </div>
               ) : (

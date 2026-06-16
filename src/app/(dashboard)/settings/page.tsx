@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getCachedSubscriptionForSession } from "@/lib/cached-subscription";
 import { isAdminUser } from "@/lib/digimytch-config";
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const supabase = await createClient();

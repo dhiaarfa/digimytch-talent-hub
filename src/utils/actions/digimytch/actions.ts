@@ -158,6 +158,7 @@ export async function getFormationHubData(): Promise<{
   courses: Awaited<ReturnType<typeof listCourses>>;
   ranked: ReturnType<typeof rankCoursesBySkillGaps>;
   gapUnion: string[];
+  hasResume: boolean;
 }> {
   const courses = await listCourses();
   const { jobsWithMatch, resume } = await getCachedJobsWithMatch();
@@ -171,5 +172,5 @@ export async function getFormationHubData(): Promise<{
 
   const gaps = [...gapUnion];
   const ranked = rankCoursesBySkillGaps(courses, gaps);
-  return { courses, ranked, gapUnion: gaps };
+  return { courses, ranked, gapUnion: gaps, hasResume: Boolean(resume) };
 }

@@ -19,12 +19,17 @@ export async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage
     isPro: boolean;
     config?: AIConfig;
     useThinking?: boolean;
+    /** When set, use this chain instead of the default Digimytch chain (e.g. interview). */
+    fallbackChain?: readonly string[];
   },
   task: (model: LanguageModelV1) => Promise<T>
 ): Promise<T> {
-  const chain = IS_DIGIMYTCH_TALENT_HUB
-    ? getDigimytchModelFallbackChain(input.config?.model)
-    : [input.config?.model].filter(Boolean) as string[];
+  const chain =
+    input.fallbackChain && input.fallbackChain.length > 0
+      ? [...input.fallbackChain]
+      : IS_DIGIMYTCH_TALENT_HUB
+        ? getDigimytchModelFallbackChain(input.config?.model)
+        : ([input.config?.model].filter(Boolean) as string[]);
 
   const modelsToTry =
     chain.length > 0 ? chain : [input.config?.model ?? "openrouter/free"];

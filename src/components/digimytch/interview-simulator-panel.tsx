@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   MessageSquare,
   Mic,
@@ -44,12 +44,16 @@ export function InterviewSimulatorPanel({ setup }: { setup: InterviewSetupData }
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [micGranted, setMicGranted] = useState<boolean | null>(null);
   const [micChecking, setMicChecking] = useState(false);
-  const [showMicInstructions, setShowMicInstructions] = useState(
-    () => typeof window !== "undefined" && !localStorage.getItem("mic-instructions-seen")
-  );
-  const [browserSttHint] = useState(() =>
-    typeof window !== "undefined" ? getInterviewSttFallbackMessage(isEn) : ""
-  );
+  // Defer localStorage reads to avoid SSR/client hydration mismatch
+  const [showMicInstructions, setShowMicInstructions] = useState(false);
+  const [browserSttHint, setBrowserSttHint] = useState("");
+
+  // Run once on mount (client-only) to read localStorage safely
+  useEffect(() => {
+    setShowMicInstructions(!localStorage.getItem("mic-instructions-seen"));
+    setBrowserSttHint(getInterviewSttFallbackMessage(isEn));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const aiConfig = { model: defaultModel, apiKeys };
 
@@ -266,6 +270,7 @@ export function InterviewSimulatorPanel({ setup }: { setup: InterviewSetupData }
             lang={lang}
             userDisplayName={setup.userDisplayName}
             userAvatarUrl={setup.userAvatarUrl}
+            profileBrief={setup.profileBrief}
             demoMode={demoMode}
             onReset={handleReset}
           />

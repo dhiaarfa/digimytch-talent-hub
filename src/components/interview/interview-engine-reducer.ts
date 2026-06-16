@@ -64,11 +64,23 @@ export function interviewEngineReducer(
         ...state.messages,
         { role: "assistant", content: action.content },
       ];
+      const userTurns = countUserTurns(messages);
+      if (userTurns >= INTERVIEW_MAX_TURNS) {
+        return {
+          ...state,
+          messages,
+          currentQuestion: action.content,
+          phase: "processing",
+          pendingAnswer: "__FINISH__",
+          error: null,
+        };
+      }
       return {
         ...state,
         messages,
         currentQuestion: action.content,
-        phase: "speaking",
+        phase: "listening",
+        liveTranscript: "",
         error: null,
       };
     }
