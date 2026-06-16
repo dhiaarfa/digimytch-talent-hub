@@ -65,31 +65,6 @@ async function getPlanState() {
 
 
 /**
- * Strip CoT from a debrief (multi-paragraph). Only removes obvious reasoning
- * lines at the TOP of the response, preserving the full structured content.
- */
-function cleanDebriefReply(raw: string): string {
-  const lines = raw.trim().split(/\r?\n/);
-  // Drop leading lines that look like reasoning (until we hit a real markdown title or French sentence)
-  let start = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i].trim();
-    if (!l) continue;
-    // Stop skipping once we hit a real content line
-    if (l.startsWith("**") || l.startsWith("#") || /^[A-ZÀ-Ü]/.test(l)) break;
-    // Skip if it looks like reasoning
-    if (
-      /\(\d+\)/.test(l) ||
-      /^(Count|Let[''`s]|Step \d|Voici|Je dois|Calculons|First|Greeting|Let me)/i.test(l) ||
-      /\bcount\b.*\bword|\bword.*\bcount/i.test(l)
-    ) {
-      start = i + 1;
-    }
-  }
-  return lines.slice(start).join("\n").trim() || raw.trim();
-}
-
-/**
  * Strip chain-of-thought / reasoning leakage from a model that thinks aloud.
  *
  * Some free OpenRouter models (thinking models) output their internal reasoning
