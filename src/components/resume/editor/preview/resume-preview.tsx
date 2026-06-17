@@ -167,3 +167,10 @@ export const ResumePreview = memo(function ResumePreview({
           }}
         />
       </object>
+    </div>
+  );
+}, (prev, next) =>
+  generateResumeHash(prev.resume) === generateResumeHash(next.resume) &&
+  prev.variant === next.variant &&
+  Math.abs(prev.containerWidth - next.containerWidth) < 4
+);

@@ -510,4 +510,3 @@ export async function generateResumeScore(
   const { score } = await computeResumeScore(resume, job, config);
   return toJsonSafeScore(score);
 }
-                                                     
