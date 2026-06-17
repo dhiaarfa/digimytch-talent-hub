@@ -1,12 +1,31 @@
-import Link from "next/link";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-export const metadata = {
-  title: "Email confirmé — Digimytch Talent Hub",
-};
+const REDIRECT_DELAY = 4; // seconds
 
 export default function EmailConfirmedPage() {
+  const router = useRouter();
+  const [countdown, setCountdown] = useState(REDIRECT_DELAY);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          router.push("/home");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [router]);
+
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-white to-blue-50 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8 text-center space-y-6">
@@ -29,7 +48,14 @@ export default function EmailConfirmedPage() {
 
         {/* Message */}
         <p className="text-slate-600 leading-relaxed">
-          Votre adresse email a bien été vérifiée. Votre compte est maintenant actif — vous pouvez vous connecter et accéder à la plateforme.
+          Votre adresse email a bien été vérifiée. Votre compte est maintenant
+          actif.
+        </p>
+
+        {/* Countdown */}
+        <p className="text-sm text-slate-500">
+          Redirection automatique dans{" "}
+          <span className="font-semibold text-violet-600">{countdown}s</span>…
         </p>
 
         {/* CTA */}
@@ -38,12 +64,8 @@ export default function EmailConfirmedPage() {
             asChild
             className="w-full bg-gradient-to-r from-violet-600 via-blue-600 to-violet-600 hover:from-violet-500 hover:via-blue-500 hover:to-violet-500 text-white shadow-lg shadow-violet-500/20 transition-all duration-300"
           >
-            <Link href="/home">Accéder à la plateforme</Link>
+            <Link href="/home">Accéder maintenant</Link>
           </Button>
-
-          <p className="text-xs text-slate-400">
-            Vous serez automatiquement connecté si la session est active.
-          </p>
         </div>
       </div>
     </main>

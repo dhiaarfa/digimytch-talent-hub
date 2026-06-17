@@ -10,7 +10,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { User, Linkedin, Briefcase, GraduationCap, Wrench, FolderGit2, Upload, Save, Trash2} from "lucide-react";
+import { User, Linkedin, Briefcase, GraduationCap, Wrench, FolderGit2, Upload, Save, Trash2, AlertCircle } from "lucide-react";
+
+// ── Profile Validation ─────────────────────────────────────────────────────
+interface ProfileValidationErrors {
+  basic: string[];
+  experience: string[];
+  projects: string[];
+  education: string[];
+  skills: string[];
+}
+
+function validateProfileCompleteness(profile: Profile): ProfileValidationErrors {
+  const errors: ProfileValidationErrors = {
+    basic: [], experience: [], projects: [], education: [], skills: [],
+  };
+
+  // Bug #3 — Basic info required
+  if (!profile.first_name?.trim()) errors.basic.push("Prénom requis");
+  if (!profile.last_name?.trim())  errors.basic.push("Nom requis");
+  if (!profile.email?.trim())      errors.basic.push("Email requis");
+  if (!profile.phone_number?.trim()) errors.basic.push("Téléphone requis");
+
+  // Bug #4 — Work experience required (at least 1 entry)
+  if (!profile.work_experience || profile.work_experience.length === 0)
+    errors.experience.push("Au moins 1 expérience professionnelle requise");
+
+  // Bug #5 — Projects required (at least 1 entry)
+  if (!profile.projects || profile.projects.length === 0)
+    errors.projects.push("Au moins 1 projet requis");
+
+  // Bug #6 — Education required (at least 1 entry)
+  if (!profile.education || profile.education.length === 0)
+    errors.education.push("Au moins 1 formation requise");
+
+  // Bug #7 — Skills required (at least 1 category with items)
+  const hasSkills = profile.skills?.some(s => s.items && s.items.length > 0);
+  if (!hasSkills)
+    errors.skills.push("Au moins 1 compétence requise");
+
+  return errors;
+}
+
+function countErrors(errors: ProfileValidationErrors): number {
+  return Object.values(errors).reduce((sum, arr) => sum + arr.length, 0);
+}
 
 import {
   Dialog,
@@ -53,6 +97,9 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
   const [apiKeyError, setApiKeyError] = useState("");
   const [isResumeDragging, setIsResumeDragging] = useState(false);
   const [isTextImportDragging, setIsTextImportDragging] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ProfileValidationErrors>(() =>
+    validateProfileCompleteness(initialProfile)
+  );
   const router = useRouter();
 
   // Sync with server state when initialProfile changes
@@ -68,22 +115,45 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
   }, [isResumeDialogOpen, isTextImportDialogOpen]);
 
   const updateField = (field: keyof Profile, value: unknown) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
+    setProfile(prev => {
+      const updated = { ...prev, [field]: value };
+      setValidationErrors(validateProfileCompleteness(updated));
+      return updated;
+    });
   };
 
   const handleSubmit = async () => {
+    // Validate required fields before saving
+    const errors = validateProfileCompleteness(profile);
+    const totalErrors = countErrors(errors);
+    if (totalErrors > 0) {
+      const allMessages = Object.values(errors).flat();
+      toast.warning(`Profil incomplet (${totalErrors} champ${totalErrors > 1 ? 's' : ''} requis)`, {
+        description: allMessages.slice(0, 3).join(" · ") + (allMessages.length > 3 ? ` · +${allMessages.length - 3} autres` : ""),
+        position: "bottom-right",
+        duration: 6000,
+      });
+      // Save anyway — validation is advisory, not blocking
+    }
+
     try {
       setIsSubmitting(true);
       await updateProfile(profile);
-      toast.success("Changes saved successfully", {
-        position: "bottom-right",
-        className: "bg-gradient-to-r from-emerald-500 to-green-500 text-white border-none",
-      });
-      // Force a server revalidation
+      if (totalErrors === 0) {
+        toast.success("Profil sauvegardé avec succès", {
+          position: "bottom-right",
+          className: "bg-gradient-to-r from-emerald-500 to-green-500 text-white border-none",
+        });
+      } else {
+        toast.info("Sauvegardé — complétez les champs requis pour générer des CV optimaux", {
+          position: "bottom-right",
+          duration: 5000,
+        });
+      }
       router.refresh();
     } catch (error) {
       void error;
-      toast.error("Unable to save your changes. Please try again.", {
+      toast.error("Impossible de sauvegarder. Veuillez réessayer.", {
         position: "bottom-right",
       });
     } finally {
@@ -316,9 +386,25 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
     }
   };
 
+  const totalErrors = countErrors(validationErrors);
+
   return (
     <div className="relative mx-auto">
-      
+
+      {/* Validation Banner */}
+      {totalErrors > 0 && (
+        <div className="mx-6 mt-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              Profil incomplet — {totalErrors} champ{totalErrors > 1 ? 's' : ''} requis
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              {Object.values(validationErrors).flat().join(" · ")}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="z-50 mt-4">
@@ -715,6 +801,11 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
                     Basic Info
                     <div className="absolute -bottom-2 left-0 right-0 h-0.5 rounded-full bg-teal-500 scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100"></div>
                   </span>
+                  {validationErrors.basic.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                      {validationErrors.basic.length}
+                    </span>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="experience" 
@@ -730,6 +821,11 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
                     Work Experience
                     <div className="absolute -bottom-2 left-0 right-0 h-0.5 rounded-full bg-cyan-500 scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100"></div>
                   </span>
+                  {validationErrors.experience.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                      !
+                    </span>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="projects" 
@@ -745,6 +841,11 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
                     Projects
                     <div className="absolute -bottom-2 left-0 right-0 h-0.5 rounded-full bg-violet-500 scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100"></div>
                   </span>
+                  {validationErrors.projects.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                      !
+                    </span>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="education" 
@@ -760,6 +861,11 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
                     Education
                     <div className="absolute -bottom-2 left-0 right-0 h-0.5 rounded-full bg-indigo-500 scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100"></div>
                   </span>
+                  {validationErrors.education.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                      !
+                    </span>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger 
                   value="skills" 
@@ -775,6 +881,11 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
                     Skills
                     <div className="absolute -bottom-2 left-0 right-0 h-0.5 rounded-full bg-rose-500 scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100"></div>
                   </span>
+                  {validationErrors.skills.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                      !
+                    </span>
+                  )}
                 </TabsTrigger>
                
               </TabsList>
