@@ -98,3 +98,10 @@ Thumbs.db
 *.bat
 *.ps1
 !scripts/*.ps1
+
+.vercel
+.env*
+slide-*.jpg
+_file_list_temp.txt
+skills-lock.json
+favicon.ico

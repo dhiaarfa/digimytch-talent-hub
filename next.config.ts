@@ -27,6 +27,7 @@ const securityHeaders = [
       `connect-src 'self' https://*.supabase.co wss://*.supabase.co${process.env.NODE_ENV !== "production" ? " http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*" : ""} https://api.openai.com https://api.anthropic.com https://openrouter.ai https://generativelanguage.googleapis.com https://api.stripe.com https://va.vercel-scripts.com https://vitals.vercel-insights.com`,
       "frame-src 'self' blob: https://js.stripe.com https://hooks.stripe.com",
       "object-src 'self' blob:",
+      "worker-src 'self' blob:",
       "base-uri 'self'",
       "form-action 'self'",
       "upgrade-insecure-requests",
@@ -74,7 +75,4 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
     ];
-  },
-};
-
-export default nextConfig;
+  }

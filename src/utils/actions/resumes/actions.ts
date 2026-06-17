@@ -292,8 +292,6 @@ export async function createBaseResume(
       projects: { visible: (selectedContent?.projects?.length ?? 0) > 0 },
     },
     document_settings: {
-      footer_width: 0,
-      show_ubc_footer: false,
       header_name_size: 24,
       skills_margin_top: 0,
       document_font_size: 10,
@@ -512,3 +510,4 @@ export async function generateResumeScore(
   const { score } = await computeResumeScore(resume, job, config);
   return toJsonSafeScore(score);
 }
+                                                     

@@ -4,7 +4,6 @@ import { Slider } from "@/components/ui/slider";
 import { DocumentSettings } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { ChevronUp, ChevronDown } from "lucide-react"
-import { Switch } from "@/components/ui/switch";
 import { SavedStylesDialog } from "./saved-styles-dialog";
 import { LayoutTemplate } from "lucide-react";
 import { IS_DIGIMYTCH_TALENT_HUB } from "@/lib/digimytch-config";
@@ -427,77 +426,6 @@ export function DocumentSettingsForm({ documentSettings, onChange }: DocumentSet
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          {!digimytch && (
-          <div className="space-y-6 ">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                Footer Options
-              </Label>
-              <div className="h-[1px] flex-1 mx-4 bg-gradient-to-r from-teal-200/20 via-cyan-200/20 to-transparent" />
-            </div>
-
-            <div className="space-y-2 bg-slate-50/50 rounded-lg  border border-slate-200/50">
-              <div className="flex items-center justify-between space-x-2">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Show UBC Science Co-op Footer
-                </Label>
-                <Switch
-                  checked={documentSettings?.show_ubc_footer ?? false}
-                  onCheckedChange={(checked) =>
-                    handleSettingsChange({
-                      ...documentSettings,
-                      show_ubc_footer: checked,
-                    })
-                  }
-                />
-              </div>
-              <p className="text-xs text-muted-foreground/60 mt-2">
-                By enabling this footer, I confirm that I am a UBC Faculty of Science Co-op student and acknowledge that I am responsible for ensuring appropriate use of UBC branding in my resume.
-              </p>
-              
-              {/* Footer Width Control - Only shown when footer is enabled */}
-              {documentSettings?.show_ubc_footer && (
-                <div className="space-y-2 mt-4 pt-4 border-t border-slate-200/50">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-muted-foreground">Footer Width</Label>
-                    <div className="flex items-center">
-                      <NumberInput
-                        value={documentSettings?.footer_width ?? 95}
-                        min={50}
-                        max={100}
-                        step={1}
-                        onChange={(value) => 
-                          handleSettingsChange({
-                            ...documentSettings,
-                            footer_width: value
-                          })
-                        }
-                      />
-                      <span className="text-xs text-muted-foreground/60 ml-1">%</span>
-                    </div>
-                  </div>
-                  <Slider
-                    value={[documentSettings?.footer_width ?? 95]}
-                    min={50}
-                    max={100}
-                    step={1}
-                    onValueChange={([value]) => 
-                      handleSettingsChange({
-                        ...documentSettings,
-                        footer_width: value
-                      })
-                    }
-                  />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-xs text-muted-foreground/40">Narrow</span>
-                    <span className="text-xs text-muted-foreground/40">Full Width</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          )}
-
           {/* Global Document Settings */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -754,4 +682,4 @@ export function DocumentSettingsForm({ documentSettings, onChange }: DocumentSet
       </Card>
     </div>
   );
-} 
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              

@@ -98,9 +98,14 @@ export const ResumePreview = memo(function ResumePreview({
 
         if (!cancelled) setPreviewUrl(objectUrl);
       } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
         logger.error("[ResumePreview] PDF generation failed:", error);
         if (!cancelled) {
-          setPdfError("Impossible de générer l'aperçu PDF.");
+          setPdfError(
+            process.env.NODE_ENV === "development"
+              ? `Aperçu PDF — erreur: ${msg}`
+              : "Impossible de générer l'aperçu PDF."
+          );
           setPreviewUrl(null);
         }
       }
@@ -162,10 +167,3 @@ export const ResumePreview = memo(function ResumePreview({
           }}
         />
       </object>
-    </div>
-  );
-}, (prev, next) =>
-  generateResumeHash(prev.resume) === generateResumeHash(next.resume) &&
-  prev.variant === next.variant &&
-  Math.abs(prev.containerWidth - next.containerWidth) < 4
-);
