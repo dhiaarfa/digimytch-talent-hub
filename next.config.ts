@@ -75,4 +75,7 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
     ];
-  }
+  },
+};
+
+export default nextConfig;
